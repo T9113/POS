@@ -22,10 +22,11 @@ class SwiftPOSApp(ctk.CTk):
         # Auto-create database and tables on first run
         init_database()
 
-        # One-time desktop shortcut creation on first install / launch
+        # One-time desktop shortcut creation on first install / launch in background thread
         try:
+            import threading
             from pos_app.utils.shortcut_helper import setup_first_run_shortcut
-            setup_first_run_shortcut()
+            threading.Thread(target=setup_first_run_shortcut, daemon=True).start()
         except Exception:
             pass
 

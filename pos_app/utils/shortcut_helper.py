@@ -58,7 +58,8 @@ oLink.Save
         with open(vbs_script, "w", encoding="utf-8") as f:
             f.write(vbs_code)
 
-        subprocess.run(["cscript", "//nologo", vbs_script], check=True, capture_output=True)
+        cflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        subprocess.run(["cscript", "//nologo", vbs_script], check=True, capture_output=True, timeout=3, creationflags=cflags)
         if os.path.exists(vbs_script):
             try:
                 os.remove(vbs_script)

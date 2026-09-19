@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 *.egg-info/
 
-# PyInstaller build artifacts (keep dist/SwiftPOS.exe)
+# PyInstaller build artifacts (keep dist/OnesDevPOS.exe)
 build/
 *.spec
 

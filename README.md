@@ -1,4 +1,4 @@
-# SwiftPOS - Offline Desktop Point of Sale System for Windows
+# OnesDev POS - Offline Desktop Point of Sale System for Windows
 
 A complete, production-ready, offline Point of Sale (POS) desktop application designed for Windows 10 & 11. Built with Python 3, CustomTkinter, SQLite, and packaged into a single portable `.exe` file.
 

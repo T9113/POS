@@ -7,6 +7,13 @@ def build():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(base_dir)
 
+    # Terminate running POS instances to release file locks on Windows
+    if sys.platform == "win32":
+        try:
+            subprocess.run(["powershell", "-Command", "Stop-Process -Name 'OnesDevPOS*','SwiftPOS*' -Force -ErrorAction SilentlyContinue"], capture_output=True, timeout=5)
+        except Exception:
+            pass
+
     # Locate customtkinter package directory for bundling its json themes and assets
     ctk_dir = customtkinter.__path__[0]
     assets_dir = os.path.join(base_dir, "pos_app", "assets")
@@ -54,12 +61,21 @@ def build():
 
     ret = subprocess.call(pyinstaller_cmd)
     if ret != 0:
-        print("\n❌ Build failed with error code:", ret)
+        print("\n[ERROR] Build failed with error code:", ret)
         return False
 
     exe_path = os.path.join(dist_dir, "OnesDevPOS.exe")
     if os.path.exists(exe_path):
         size_mb = os.path.getsize(exe_path) / (1024 * 1024)
+
+        # Sync pristine demo database next to the executable
+        root_db = os.path.join(base_dir, "pos_data.db")
+        dist_db = os.path.join(dist_dir, "pos_data.db")
+        if os.path.exists(root_db):
+            import shutil
+            shutil.copy2(root_db, dist_db)
+            print(f" [DATABASE] Synced pristine demo database to: {dist_db}")
+
         print("\n==================================================")
         print(" [SUCCESS] OnesDevPOS.exe built successfully!")
         print(f" Executable Path: {exe_path}")
@@ -67,7 +83,7 @@ def build():
         print("==================================================")
         return True
     else:
-        print("\n❌ Executable not found in dist folder.")
+        print("\n[ERROR] Executable not found in dist folder.")
         return False
 
 if __name__ == "__main__":

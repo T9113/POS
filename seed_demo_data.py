@@ -74,13 +74,34 @@ REALISTIC_CATALOG = [
     ("Wireless Bluetooth Keyboard", "ELE-007", "890500100007", "Electronics", "piece", 1400.0, 2400.0, 2000.0, 5.0, 1.0)
 ]
 
+def clean_old_data():
+    """Removes all old testing products, orders, customers, and test artifacts."""
+    print("Clearing old test records and resetting data tables...")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA foreign_keys = OFF;")
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('users', 'settings', 'sqlite_sequence')")
+        tables = [r[0] for r in cursor.fetchall()]
+        for table in tables:
+            cursor.execute(f"DELETE FROM {table}")
+            try:
+                cursor.execute(f"DELETE FROM sqlite_sequence WHERE name='{table}'")
+            except Exception:
+                pass
+        conn.commit()
+        cursor.execute("PRAGMA foreign_keys = ON;")
+    print("Old test records removed successfully.")
+
 def seed_data(extra_stress_count: int = 0):
     print("Initializing database...")
     init_database()
+    clean_old_data()
 
     from pos_app.models.settings_model import SettingsModel
     SettingsModel.set("business_name", "OnesDev POS Store")
     SettingsModel.set("receipt_header", "Welcome to OnesDev POS Store")
+    SettingsModel.set("receipt_footer", "Thank you for shopping with us!\nReturn within 7 days with receipt.")
+    SettingsModel.set("desktop_shortcut_created", "1")
 
     print("Seeding suppliers...")
     suppliers = [
@@ -130,7 +151,7 @@ def seed_data(extra_stress_count: int = 0):
                 "is_active": 1
             })
 
-    # Extra stress testing products if requested (up to 5,000 products)
+    # Extra stress testing products if requested
     if extra_stress_count > 0:
         print(f"Generating {extra_stress_count} stress-test products...")
         prefixes = ["Super", "Classic", "Deluxe", "Organic", "Golden", "Pure", "Royal", "Speedy", "Mega", "Compact"]
@@ -212,8 +233,17 @@ def seed_data(extra_stress_count: int = 0):
     ExpenseModel.create("Electricity & Utilities", 8500.0, "Monthly commercial electricity bill", today_str, 1)
     ExpenseModel.create("Transport & Fuel", 1200.0, "Stock delivery fuel expense", today_str, 1)
 
-    print("[SUCCESS] Demo retail data seeded successfully!")
+    # Sync seeded database to dist/pos_data.db for the standalone binary
+    import shutil
+    from pos_app.config import DB_PATH, APP_DIR
+    dist_db = os.path.join(BASE_DIR, "dist", "pos_data.db")
+    if os.path.exists(os.path.join(BASE_DIR, "dist")):
+        shutil.copy2(DB_PATH, dist_db)
+        print(f"Synced demo database to: {dist_db}")
+
+    print("[SUCCESS] Clean retail demo data seeded successfully!")
 
 if __name__ == "__main__":
     stress = 5000 if "--stress-test-5000" in sys.argv else 0
     seed_data(extra_stress_count=stress)
+
