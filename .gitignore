@@ -1,0 +1,18 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# PyInstaller build artifacts (keep dist/SwiftPOS.exe)
+build/
+*.spec
+
+# Runtime SQLite databases & local data
+*.db
+*.db-wal
+*.db-shm
+*.safety_bak
+backups/
+exports/
+data/
