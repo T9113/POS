@@ -3,6 +3,7 @@ from pos_app.views.theme import COLORS, FONTS
 from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.controllers.sales_controller import SalesController
+from pos_app.controllers.auth_controller import AuthController
 from pos_app.views.dialogs.receipt_preview_dialog import ReceiptPreviewDialog
 from pos_app.views.dialogs.return_dialog import ReturnDialog
 
@@ -195,6 +196,8 @@ class SalesView(ctk.CTkFrame):
         items_scroll = ctk.CTkScrollableFrame(self.detail_panel, fg_color=COLORS["bg_input"], corner_radius=8)
         items_scroll.pack(fill="both", expand=True, padx=20, pady=(0, 10))
 
+        is_admin = AuthController.is_admin()
+
         for item in order.get("items", []):
             i_row = ctk.CTkFrame(items_scroll, fg_color=COLORS["bg_card"], corner_radius=6)
             i_row.pack(fill="x", pady=2, padx=2)
@@ -203,11 +206,18 @@ class SalesView(ctk.CTkFrame):
             qty = float(item.get("quantity", 1))
             unit_p = float(item.get("unit_price", 0))
             tot = float(item.get("total", 0))
+            cost_p = float(item.get("cost_price", 0) or 0)
+            item_profit = tot - (cost_p * qty)
 
-            ctk.CTkLabel(i_row, text=name, font=FONTS["body_md"], text_color=COLORS["text_primary"], width=200, anchor="w").pack(side="left", padx=10, pady=8)
-            ctk.CTkLabel(i_row, text=f"Qty: {qty:g}", font=FONTS["body_sm"], text_color=COLORS["text_secondary"], width=80).pack(side="left")
-            ctk.CTkLabel(i_row, text=f"{self.currency} {unit_p:,.2f}", font=FONTS["body_sm"], text_color=COLORS["text_secondary"], width=100).pack(side="left")
-            ctk.CTkLabel(i_row, text=f"{self.currency} {tot:,.2f}", font=FONTS["title_sm"], text_color=COLORS["primary"], width=110, anchor="e").pack(side="right", padx=12)
+            ctk.CTkLabel(i_row, text=name, font=FONTS["body_md"], text_color=COLORS["text_primary"], width=180, anchor="w").pack(side="left", padx=10, pady=8)
+            ctk.CTkLabel(i_row, text=f"Qty: {qty:g}", font=FONTS["body_sm"], text_color=COLORS["text_secondary"], width=65).pack(side="left")
+            ctk.CTkLabel(i_row, text=f"{self.currency} {unit_p:,.2f}", font=FONTS["body_sm"], text_color=COLORS["text_secondary"], width=85).pack(side="left")
+
+            if is_admin:
+                ctk.CTkLabel(i_row, text=f"Cost: {self.currency} {cost_p * qty:,.2f}", font=FONTS["body_sm"], text_color=COLORS["text_muted"], width=95).pack(side="left")
+                ctk.CTkLabel(i_row, text=f"Profit: {self.currency} {item_profit:,.2f}", font=FONTS["body_sm"], text_color=COLORS["success"], width=100).pack(side="left")
+
+            ctk.CTkLabel(i_row, text=f"{self.currency} {tot:,.2f}", font=FONTS["title_sm"], text_color=COLORS["primary"], width=100, anchor="e").pack(side="right", padx=12)
 
         # Financial Summary Footer
         sum_box = ctk.CTkFrame(self.detail_panel, fg_color=COLORS["bg_card"], corner_radius=8)
@@ -219,15 +229,23 @@ class SalesView(ctk.CTkFrame):
         total = float(order.get("total", 0))
         paid = float(order.get("amount_paid", 0))
         change = float(order.get("change_due", 0))
+        cost_total = float(order.get("cost_total", 0) or 0)
+        profit = float(order.get("profit", 0) or 0)
+        margin_pct = (profit / total * 100) if total > 0 else 0.0
 
         f_row1 = ctk.CTkFrame(sum_box, fg_color="transparent")
         f_row1.pack(fill="x", padx=15, pady=(8, 2))
         ctk.CTkLabel(f_row1, text=f"Subtotal: {self.currency} {sub:,.2f}  |  Discount: -{self.currency} {disc:,.2f}  |  Tax: {self.currency} {tax:,.2f}", font=FONTS["body_sm"], text_color=COLORS["text_secondary"]).pack(side="left")
 
         f_row2 = ctk.CTkFrame(sum_box, fg_color="transparent")
-        f_row2.pack(fill="x", padx=15, pady=(2, 8))
+        f_row2.pack(fill="x", padx=15, pady=(2, 4))
         ctk.CTkLabel(f_row2, text=f"Paid ({order['payment_method'].capitalize()}): {self.currency} {paid:,.2f}  |  Change: {self.currency} {change:,.2f}", font=FONTS["body_sm"], text_color=COLORS["text_secondary"]).pack(side="left")
         ctk.CTkLabel(f_row2, text=f"TOTAL: {self.currency} {total:,.2f}", font=FONTS["title_md"], text_color=COLORS["primary"]).pack(side="right")
+
+        if is_admin:
+            f_row3 = ctk.CTkFrame(sum_box, fg_color="transparent")
+            f_row3.pack(fill="x", padx=15, pady=(2, 8))
+            ctk.CTkLabel(f_row3, text=f"Cost Total: {self.currency} {cost_total:,.2f}  •  Gross Profit: {self.currency} {profit:,.2f}  ({margin_pct:.1f}% margin)", font=FONTS["title_sm"], text_color=COLORS["success"]).pack(side="left")
 
     def _reprint(self, order):
         ReceiptPreviewDialog(self, order)

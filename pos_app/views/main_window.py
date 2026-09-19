@@ -15,6 +15,7 @@ from pos_app.views.expenses_view import ExpensesView
 from pos_app.views.settings_view import SettingsView
 from pos_app.views.dialogs.shortcuts_dialog import ShortcutsDialog
 from pos_app.views.dialogs.product_form_dialog import ProductFormDialog
+from pos_app.views.dialogs.eod_dialog import EODDialog
 from pos_app.utils.i18n import t, set_language, get_language
 
 class MainWindow(ctk.CTkFrame):
@@ -24,7 +25,19 @@ class MainWindow(ctk.CTkFrame):
         self.on_logout = on_logout
         self.current_screen = None
         self.active_nav = "pos"
-        self.nav_buttons = {}
+        self.nav_items_data = [
+            ("dashboard", "📊", "Dashboard"),
+            ("pos", "🛒", "Point of Sale (F1)"),
+            ("products", "🏷️", "Products"),
+            ("inventory", "📦", "Inventory"),
+            ("customers", "👥", "Customers"),
+            ("sales", "🧾", "Sales & Orders"),
+            ("reports", "📈", "Reports"),
+            ("expenses", "💸", "Expenses"),
+            ("settings", "⚙️", "Settings")
+        ]
+        self.nav_widgets = {} # key: {"row": frame, "indicator": frame, "btn": btn, "icon": icon, "label": label}
+        self.sidebar_collapsed = False
         self.theme_mode = SettingsModel.get("theme_mode", "dark")
         self.currency = SettingsModel.get("currency_symbol", "Rs")
 
@@ -34,16 +47,24 @@ class MainWindow(ctk.CTkFrame):
         self.show_screen("pos")
 
     def _build_shell(self):
-        # 1. Top Bar (height 58)
-        self.top_bar = ctk.CTkFrame(self, fg_color=COLORS["bg_surface"], corner_radius=0, height=58)
+        # 1. Top Bar (height 54)
+        self.top_bar = ctk.CTkFrame(self, fg_color=COLORS["bg_surface"], corner_radius=0, height=54)
         self.top_bar.pack(fill="x", side="top")
         self.top_bar.pack_propagate(False)
 
-        # Brand / Logo
+        # Brand / Logo + Collapse Toggle
         brand_box = ctk.CTkFrame(self.top_bar, fg_color="transparent")
-        brand_box.pack(side="left", padx=16)
+        brand_box.pack(side="left", padx=12)
 
-        ctk.CTkLabel(brand_box, text="⚡", font=("Segoe UI", 20)).pack(side="left", padx=(0, 6))
+        self.btn_toggle_sidebar = ctk.CTkButton(
+            brand_box, text="≡", width=36, height=36,
+            font=("Segoe UI", 16, "bold"), fg_color="transparent",
+            text_color=COLORS["text_primary"], hover_color=COLORS["bg_hover"],
+            command=self._toggle_sidebar
+        )
+        self.btn_toggle_sidebar.pack(side="left", padx=(0, 8))
+
+        ctk.CTkLabel(brand_box, text="⚡", font=("Segoe UI", 18)).pack(side="left", padx=(0, 6))
         biz_name = SettingsModel.get("business_name", "SwiftPOS")
         self.lbl_brand = ctk.CTkLabel(brand_box, text=biz_name, font=FONTS["title_md"], text_color=COLORS["primary"])
         self.lbl_brand.pack(side="left")
@@ -54,9 +75,9 @@ class MainWindow(ctk.CTkFrame):
         self.lbl_clock = ctk.CTkLabel(clock_box, text="", font=FONTS["title_sm"], text_color=COLORS["text_secondary"])
         self.lbl_clock.pack()
 
-        # Right Actions: User info, Shortcuts, Theme toggle, Language, Logout
+        # Right Actions: User info, EOD Close Day, Shortcuts, Theme toggle, Logout
         right_box = ctk.CTkFrame(self.top_bar, fg_color="transparent")
-        right_box.pack(side="right", padx=16)
+        right_box.pack(side="right", padx=12)
 
         user = AuthController.get_current_user()
         u_name = user["full_name"] if user else "Cashier"
@@ -64,22 +85,30 @@ class MainWindow(ctk.CTkFrame):
         role_color = COLORS["primary"] if u_role == "Admin" else COLORS["success"]
 
         user_tag = ctk.CTkFrame(right_box, fg_color=COLORS["bg_hover"], corner_radius=16, height=32)
-        user_tag.pack(side="left", padx=6)
+        user_tag.pack(side="left", padx=5)
         ctk.CTkLabel(user_tag, text=f"👤 {u_name} ", font=FONTS["body_sm"], text_color=COLORS["text_primary"]).pack(side="left", padx=(10, 2))
         ctk.CTkLabel(user_tag, text=f" {u_role} ", font=FONTS["body_sm"], fg_color=role_color, text_color="#FFFFFF", corner_radius=10).pack(side="left", padx=(0, 6), pady=4)
+
+        # End of Day Register Close Button (Feature P)
+        ctk.CTkButton(
+            right_box, text="🌙 Close Day", font=FONTS["body_sm"],
+            fg_color=COLORS["warning_subtle"], text_color=COLORS["warning"],
+            hover_color=COLORS["warning"], width=92, height=32,
+            command=self._open_eod_dialog
+        ).pack(side="left", padx=4)
 
         # Shortcuts Cheat Sheet Button
         ctk.CTkButton(
             right_box, text="⌨️ Shortcuts", font=FONTS["body_sm"],
             fg_color=COLORS["bg_hover"], text_color=COLORS["text_primary"],
-            width=95, height=32, command=self._show_shortcuts
+            width=90, height=32, command=self._show_shortcuts
         ).pack(side="left", padx=4)
 
         # Theme Toggle (Dark / Light)
         self.btn_theme = ctk.CTkButton(
             right_box, text="☀️ Light" if self.theme_mode == "dark" else "🌙 Dark",
             font=FONTS["body_sm"], fg_color=COLORS["bg_hover"],
-            text_color=COLORS["text_primary"], width=75, height=32,
+            text_color=COLORS["text_primary"], width=72, height=32,
             command=self._toggle_theme
         )
         self.btn_theme.pack(side="left", padx=4)
@@ -88,16 +117,20 @@ class MainWindow(ctk.CTkFrame):
         ctk.CTkButton(
             right_box, text="Logout", font=FONTS["body_sm"],
             fg_color=COLORS["danger_subtle"], text_color=COLORS["danger"],
-            hover_color=COLORS["danger"], width=70, height=32,
+            hover_color=COLORS["danger"], width=68, height=32,
             command=self._do_logout
         ).pack(side="left", padx=(4, 0))
 
-        # 2. Main Work Area (Left Nav Sidebar + Center Viewport)
+        # 2. Main Work Area (Permanent Dark Left Nav Sidebar + Center Viewport)
         self.work_area = ctk.CTkFrame(self, fg_color="transparent")
         self.work_area.pack(fill="both", expand=True)
 
-        # Left Nav Sidebar (width 190)
-        self.sidebar = ctk.CTkFrame(self.work_area, width=190, fg_color=COLORS["bg_sidebar"], corner_radius=0)
+        # Left Nav Sidebar (width 200, always dark slate #1E293B / #0B0E14)
+        self.sidebar_width = 200
+        self.sidebar = ctk.CTkFrame(
+            self.work_area, width=self.sidebar_width,
+            fg_color=COLORS["sidebar_bg"], corner_radius=0
+        )
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
 
@@ -124,34 +157,62 @@ class MainWindow(ctk.CTkFrame):
         ).pack(side="right", padx=16)
 
     def _build_sidebar_menu(self):
-        nav_items = [
-            ("dashboard", "📊", "Dashboard"),
-            ("pos", "🛒", "Point of Sale (F1)"),
-            ("products", "🏷️", "Products"),
-            ("inventory", "📦", "Inventory"),
-            ("customers", "👥", "Customers"),
-            ("sales", "🧾", "Sales & Orders"),
-            ("reports", "📈", "Reports"),
-            ("expenses", "💸", "Expenses"),
-            ("settings", "⚙️", "Settings")
-        ]
-
         ctk.CTkFrame(self.sidebar, height=8, fg_color="transparent").pack()
 
-        for key, icon, label in nav_items:
-            # Check cashier role restriction
+        for key, icon, label in self.nav_items_data:
             if not AuthController.can_access(key):
                 continue
 
+            # Row container with 3px indicator + button
+            row = ctk.CTkFrame(
+                self.sidebar, height=40,
+                fg_color="transparent", corner_radius=4
+            )
+            row.pack(fill="x", padx=6, pady=2)
+            row.pack_propagate(False)
+
+            # 3px left indicator bar
+            indicator = ctk.CTkFrame(
+                row, width=3,
+                fg_color="transparent", corner_radius=0
+            )
+            indicator.pack(side="left", fill="y")
+
+            btn_text = f"  {icon}  {label}" if not self.sidebar_collapsed else icon
+            anchor_pos = "w" if not self.sidebar_collapsed else "center"
+
             btn = ctk.CTkButton(
-                self.sidebar, text=f" {icon}  {label}",
-                font=FONTS["body_md"], height=42, anchor="w",
-                fg_color="transparent", text_color=COLORS["text_primary"],
-                hover_color=COLORS["bg_hover"], corner_radius=8,
+                row, text=btn_text,
+                font=FONTS["sidebar"], height=38, anchor=anchor_pos,
+                fg_color="transparent", text_color=COLORS["sidebar_text"],
+                hover_color=COLORS["sidebar_hover"], corner_radius=4,
                 command=lambda k=key: self.show_screen(k)
             )
-            btn.pack(fill="x", padx=10, pady=2)
-            self.nav_buttons[key] = btn
+            btn.pack(side="left", fill="both", expand=True, padx=(3, 0))
+
+            self.nav_widgets[key] = {
+                "row": row,
+                "indicator": indicator,
+                "btn": btn,
+                "icon": icon,
+                "label": label
+            }
+
+    def _toggle_sidebar(self):
+        self.sidebar_collapsed = not self.sidebar_collapsed
+        new_width = 64 if self.sidebar_collapsed else 200
+        self.sidebar.configure(width=new_width)
+
+        for key, item in self.nav_widgets.items():
+            if self.sidebar_collapsed:
+                item["btn"].configure(text=item["icon"], anchor="center")
+            else:
+                item["btn"].configure(text=f"  {item['icon']}  {item['label']}", anchor="w")
+
+    def _open_eod_dialog(self):
+        user = AuthController.get_current_user()
+        u_id = user["id"] if user else 1
+        EODDialog(self, user_id=u_id, on_complete=self._update_status_ticker)
 
     def show_screen(self, screen_name: str):
         if not AuthController.can_access(screen_name):
@@ -160,11 +221,15 @@ class MainWindow(ctk.CTkFrame):
         self.active_nav = screen_name
 
         # Update sidebar active highlights
-        for k, btn in self.nav_buttons.items():
+        for k, item in self.nav_widgets.items():
             if k == screen_name:
-                btn.configure(fg_color=COLORS["primary"], text_color="#FFFFFF")
+                item["row"].configure(fg_color=COLORS["sidebar_active_bg"])
+                item["indicator"].configure(fg_color=COLORS["sidebar_indicator"])
+                item["btn"].configure(text_color=COLORS["sidebar_active_text"])
             else:
-                btn.configure(fg_color="transparent", text_color=COLORS["text_primary"])
+                item["row"].configure(fg_color="transparent")
+                item["indicator"].configure(fg_color="transparent")
+                item["btn"].configure(text_color=COLORS["sidebar_text"])
 
         # Destroy existing screen
         if self.current_screen:

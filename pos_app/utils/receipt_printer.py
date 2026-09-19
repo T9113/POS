@@ -10,7 +10,6 @@ class ReceiptPrinter:
         if sys.platform == "win32":
             try:
                 import win32print
-                # EnumPrinters flags: PRINTER_ENUM_LOCAL (2) | PRINTER_ENUM_CONNECTIONS (4)
                 raw_printers = win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)
                 printers = [p[2] for p in raw_printers]
             except Exception:
@@ -29,7 +28,7 @@ class ReceiptPrinter:
         biz_phone = settings.get("business_phone", "")
         biz_tax = settings.get("tax_number", "")
         header_note = settings.get("receipt_header", "")
-        footer_note = settings.get("receipt_footer", "Thank you for shopping!\nPlease come again.")
+        footer_note = settings.get("receipt_footer", "Thank you for shopping!\nReturn within 7 days with receipt.")
         currency = settings.get("currency_symbol", "Rs")
 
         col_w = 42 if width == "80mm" else 32
@@ -61,12 +60,12 @@ class ReceiptPrinter:
             time_str = str(created_at)[11:16]
 
         lines.append(f"Date: {date_str}   Time: {time_str}")
-        lines.append(f"Order#: {order.get('order_number', 'N/A')}  Cashier: {order.get('cashier_name', 'Admin')}")
+        lines.append(f"Order: {order.get('order_number', 'N/A')}  Cashier: {order.get('cashier_name', 'Admin')}")
         customer_name = order.get("customer_name") or "Walk-in"
         lines.append(f"Customer: {customer_name}")
         lines.append(sep_single)
 
-        # Header for columns: Item, Qty, Price, Total
+        # Header for columns
         if col_w == 42:
             lines.append(f"{'Item':<18}{'Qty':>4}{'Price':>10}{'Total':>10}")
         else:
@@ -112,6 +111,16 @@ class ReceiptPrinter:
         if change > 0:
             lines.append(f"{'Change Due:':<22}{currency:>4} {change:>14,.2f}")
 
+        # Loyalty points section if customer attached
+        loyalty_earned = float(order.get("loyalty_earned") or 0.0)
+        loyalty_bal = float(order.get("customer_loyalty_balance") or 0.0)
+        if loyalty_earned > 0 or loyalty_bal > 0:
+            lines.append(sep_single)
+            if loyalty_earned > 0:
+                lines.append(f"Loyalty earned: +{loyalty_earned:g} pts")
+            if loyalty_bal > 0:
+                lines.append(f"Loyalty Balance: {loyalty_bal:g} pts")
+
         lines.append(sep_single)
         for footer_line in footer_note.split("\n"):
             lines.append(footer_line.center(col_w))
@@ -122,10 +131,6 @@ class ReceiptPrinter:
 
     @staticmethod
     def print_receipt(order: dict, printer_name: str = None) -> tuple[bool, str]:
-        """
-        Sends raw ESC/POS formatted receipt to thermal printer via win32print.
-        Returns (success: bool, message: str)
-        """
         width = SettingsModel.get("receipt_width", "80mm")
         receipt_text = ReceiptPrinter.format_receipt_text(order, width)
 
@@ -139,7 +144,6 @@ class ReceiptPrinter:
             if target_printer == "Default" or not target_printer:
                 target_printer = win32print.GetDefaultPrinter()
 
-            # ESC/POS commands: Initialize (\x1b@), Cut paper (\x1dV\x00)
             esc_init = b"\x1b@"
             esc_cut = b"\x1dV\x00"
             raw_data = esc_init + receipt_text.encode("utf-8", errors="replace") + esc_cut

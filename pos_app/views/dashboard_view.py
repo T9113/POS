@@ -68,9 +68,12 @@ class DashboardView(ctk.CTkFrame):
                 command=lambda: self._navigate("reports")
             ).pack(side="left", padx=5)
 
-        # 2. KPI Cards Row (Today Sales, Today Orders, Today Profit, Low Stock)
+        # 2. KPI Cards Row (Today Sales, Today Orders, Avg Order Value, Today Profit / Low Stock)
         metrics = OrderModel.get_today_metrics()
         low_stock_count = ProductModel.get_low_stock_count()
+        tot_sales = float(metrics.get("total_sales", 0))
+        tot_orders = int(metrics.get("total_orders", 0))
+        avg_order = (tot_sales / tot_orders) if tot_orders > 0 else 0.0
 
         kpi_row = ctk.CTkFrame(scroll, fg_color="transparent")
         kpi_row.pack(fill="x", pady=(0, 20))
@@ -78,31 +81,37 @@ class DashboardView(ctk.CTkFrame):
         # KPI 1: Today Sales
         self._create_kpi_card(
             kpi_row, "TODAY'S TOTAL SALES",
-            f"{self.currency} {metrics['total_sales']:,.2f}",
+            f"{self.currency} {tot_sales:,.2f}",
             "💳 All completed transactions", COLORS["primary"], "💰"
         )
 
         # KPI 2: Today Orders
         self._create_kpi_card(
             kpi_row, "TODAY'S ORDERS",
-            f"{metrics['total_orders']:,}",
-            "🧾 Customers served today", COLORS["success"], "🛍️"
+            f"{tot_orders:,}",
+            "🧾 Orders completed today", COLORS["success"], "🛍️"
         )
 
-        # KPI 3: Today Gross Profit
+        # KPI 3: Average Order Value
+        self._create_kpi_card(
+            kpi_row, "AVG ORDER VALUE",
+            f"{self.currency} {avg_order:,.2f}",
+            "📊 Sales per ticket today", COLORS["accent"], "📈"
+        )
+
+        # KPI 4: Today Gross Profit or Low Stock
         if AuthController.is_admin():
             self._create_kpi_card(
-                kpi_row, "TODAY'S ESTIMATED PROFIT",
+                kpi_row, "ESTIMATED PROFIT",
                 f"{self.currency} {metrics['gross_profit']:,.2f}",
-                "📈 Revenue minus product cost", COLORS["warning"], "💹"
+                "💹 Revenue minus cost", COLORS["warning"], "💹"
             )
 
-        # KPI 4: Low Stock Alerts
         stock_color = COLORS["danger"] if low_stock_count > 0 else COLORS["success"]
         self._create_kpi_card(
             kpi_row, "LOW STOCK WARNINGS",
             f"{low_stock_count} Items",
-            "⚠️ Below minimum threshold" if low_stock_count > 0 else "✅ All stock healthy",
+            "⚠️ Needs reorder" if low_stock_count > 0 else "✅ Stock healthy",
             stock_color, "📦"
         )
 
@@ -179,6 +188,38 @@ class DashboardView(ctk.CTkFrame):
                     l_row, text=f"Stock: {lp['current_stock']:g} (Min: {lp['min_stock']:g})",
                     font=FONTS["title_sm"], text_color=COLORS["danger"]
                 ).pack(side="right", padx=12)
+
+        # 4. Recent 5 Orders Quick List
+        recent_box = ctk.CTkFrame(scroll, fg_color=COLORS["bg_surface"], corner_radius=12)
+        recent_box.pack(fill="x", pady=(0, 15))
+
+        rec_hdr = ctk.CTkFrame(recent_box, fg_color="transparent")
+        rec_hdr.pack(fill="x", padx=15, pady=(12, 8))
+        ctk.CTkLabel(rec_hdr, text="🧾 Recent Orders Quick List", font=FONTS["title_md"], text_color=COLORS["text_primary"]).pack(side="left")
+        ctk.CTkButton(
+            rec_hdr, text="View All Sales", font=FONTS["body_sm"],
+            fg_color=COLORS["bg_hover"], text_color=COLORS["text_primary"],
+            width=110, height=30, command=lambda: self._navigate("sales")
+        ).pack(side="right")
+
+        recent_orders = OrderModel.list_orders(limit=5)
+        if not recent_orders:
+            ctk.CTkLabel(
+                recent_box, text="No recent transactions recorded today.",
+                font=FONTS["body_md"], text_color=COLORS["text_secondary"]
+            ).pack(pady=20)
+        else:
+            for ro in recent_orders:
+                r_row = ctk.CTkFrame(recent_box, fg_color=COLORS["bg_card"], corner_radius=8)
+                r_row.pack(fill="x", padx=15, pady=3)
+
+                ctk.CTkLabel(r_row, text=ro["order_number"], font=FONTS["title_sm"], text_color=COLORS["text_primary"], width=130, anchor="w").pack(side="left", padx=12, pady=8)
+                cust_name = ro.get("customer_name") or "Walk-in Customer"
+                ctk.CTkLabel(r_row, text=cust_name, font=FONTS["body_sm"], text_color=COLORS["text_secondary"], width=150, anchor="w").pack(side="left", padx=5)
+                ctk.CTkLabel(r_row, text=ro.get("created_at", "")[:19], font=FONTS["body_sm"], text_color=COLORS["text_muted"], width=140, anchor="w").pack(side="left", padx=5)
+                m_name = (ro.get("payment_method") or "cash").capitalize()
+                ctk.CTkLabel(r_row, text=m_name, font=FONTS["body_sm"], text_color=COLORS["text_secondary"], width=80).pack(side="left", padx=5)
+                ctk.CTkLabel(r_row, text=f"{self.currency} {float(ro.get('total', 0)):,.2f}", font=FONTS["title_sm"], text_color=COLORS["primary"], width=110, anchor="e").pack(side="right", padx=12)
 
     def _create_kpi_card(self, parent, title, value, subtitle, accent_color, icon):
         card = ctk.CTkFrame(parent, fg_color=COLORS["bg_surface"], corner_radius=12)

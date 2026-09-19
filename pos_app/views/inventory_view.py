@@ -46,14 +46,16 @@ class InventoryView(ctk.CTkFrame):
             low_col
         )
 
-        # 2. Main Tabs (Stock-In Purchases, Adjustments Log, Suppliers Directory)
+        # 2. Main Tabs (Purchases, Low Stock Reorder, Adjustments Log, Suppliers Directory)
         self.tabs = ctk.CTkTabview(container, fg_color=COLORS["bg_surface"])
         self.tabs.pack(fill="both", expand=True)
 
+        self.tab_low_stock = self.tabs.add("⚠️ Low Stock & Reorder")
         self.tab_purchases = self.tabs.add("📦 Purchases / Stock-In")
         self.tab_adjustments = self.tabs.add("📋 Stock Adjustments Log")
         self.tab_suppliers = self.tabs.add("🏭 Suppliers Directory")
 
+        self._build_low_stock_tab()
         self._build_purchases_tab()
         self._build_adjustments_tab()
         self._build_suppliers_tab()
@@ -65,6 +67,82 @@ class InventoryView(ctk.CTkFrame):
         ctk.CTkLabel(card, text=title, font=FONTS["body_sm"], text_color=COLORS["text_secondary"]).pack(anchor="w", padx=15, pady=(12, 2))
         ctk.CTkLabel(card, text=val_str, font=FONTS["stat_value"], text_color=color).pack(anchor="w", padx=15, pady=(0, 2))
         ctk.CTkLabel(card, text=sub_str, font=FONTS["body_sm"], text_color=COLORS["text_muted"]).pack(anchor="w", padx=15, pady=(0, 12))
+
+    # --- Low Stock & Reorder Tab (Feature S) ---
+    def _build_low_stock_tab(self):
+        top = ctk.CTkFrame(self.tab_low_stock, fg_color="transparent")
+        top.pack(fill="x", padx=10, pady=(10, 10))
+
+        left_hdr = ctk.CTkFrame(top, fg_color="transparent")
+        left_hdr.pack(side="left")
+        ctk.CTkLabel(left_hdr, text="Low Stock Items & Reorder Suggestions", font=FONTS["title_sm"], text_color=COLORS["text_primary"]).pack(anchor="w")
+        self.lbl_low_status = ctk.CTkLabel(left_hdr, text="", font=FONTS["body_sm"], text_color=COLORS["text_secondary"])
+        self.lbl_low_status.pack(anchor="w")
+
+        ctk.CTkButton(
+            top, text="📋 Generate Purchase Order with Low Stock", font=FONTS["title_sm"],
+            fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"],
+            height=36, command=self._generate_po_for_low_stock
+        ).pack(side="right")
+
+        self.low_scroll = ctk.CTkScrollableFrame(self.tab_low_stock, fg_color=COLORS["bg_input"], corner_radius=8)
+        self.low_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        self._refresh_low_stock()
+
+    def _refresh_low_stock(self):
+        for w in self.low_scroll.winfo_children():
+            w.destroy()
+
+        low_items = ProductModel.get_low_stock_products(limit=150)
+        self.lbl_low_status.configure(text=f"Found {len(low_items)} products at or below safety stock threshold")
+
+        if not low_items:
+            ctk.CTkLabel(self.low_scroll, text="🎉 All stock levels are sufficient! No low stock items detected.", font=FONTS["body_md"], text_color=COLORS["success"]).pack(pady=40)
+            return
+
+        for p in low_items:
+            row = ctk.CTkFrame(self.low_scroll, fg_color=COLORS["bg_card"], corner_radius=6)
+            row.pack(fill="x", pady=2, padx=2)
+
+            name = p.get("name", "Product")
+            sku = p.get("sku") or "No SKU"
+            cur_s = float(p.get("current_stock", 0))
+            min_s = float(p.get("min_stock", 0))
+            cost = float(p.get("cost_price", 0))
+            suggested = max(int(min_s * 2 - cur_s), 5)
+
+            ctk.CTkLabel(row, text=name[:26], font=FONTS["title_sm"], text_color=COLORS["text_primary"], width=200, anchor="w").pack(side="left", padx=10, pady=8)
+            ctk.CTkLabel(row, text=f"SKU: {sku}", font=FONTS["body_sm"], text_color=COLORS["text_muted"], width=110, anchor="w").pack(side="left", padx=5)
+            ctk.CTkLabel(row, text=f"Current: {cur_s:g}", font=FONTS["title_sm"], text_color=COLORS["danger"], width=90).pack(side="left", padx=5)
+            ctk.CTkLabel(row, text=f"Min Safe: {min_s:g}", font=FONTS["body_sm"], text_color=COLORS["text_secondary"], width=90).pack(side="left", padx=5)
+            ctk.CTkLabel(row, text=f"Cost: {self.currency} {cost:,.2f}", font=FONTS["body_sm"], text_color=COLORS["text_secondary"], width=110).pack(side="left", padx=5)
+            ctk.CTkLabel(row, text=f"Suggested Reorder: {suggested} units", font=FONTS["body_md"], text_color=COLORS["primary"], width=160, anchor="e").pack(side="right", padx=15)
+
+    def _generate_po_for_low_stock(self):
+        low_items = ProductModel.get_low_stock_products(limit=150)
+        if not low_items:
+            return
+
+        po_items = []
+        for p in low_items:
+            cur_s = float(p.get("current_stock", 0))
+            min_s = float(p.get("min_stock", 0))
+            cost = float(p.get("cost_price", 0))
+            suggested = max(int(min_s * 2 - cur_s), 5)
+            po_items.append({
+                "product_id": p["id"],
+                "product_name": p["name"],
+                "quantity": suggested,
+                "cost_price": cost,
+                "total": round(suggested * cost, 2)
+            })
+
+        PurchaseOrderDialog(self, on_complete=self._on_po_completed, initial_items=po_items)
+
+    def _on_po_completed(self):
+        self._refresh_low_stock()
+        self._refresh_purchases()
 
     # --- Purchases Tab ---
     def _build_purchases_tab(self):
