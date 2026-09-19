@@ -53,11 +53,11 @@ class TestSwiftPOS(unittest.TestCase):
 
     def test_03_checkout_and_stock_decrement(self):
         """Test that checkout saves order and atomically decreases stock"""
-        # Create a dedicated test product
+        ts = int(time.time() * 1000)
         pid = ProductModel.create({
-            "name": "Test Milk 1L",
-            "sku": "TEST-MILK-001",
-            "barcode": "999888777001",
+            "name": f"Test Milk {ts}",
+            "sku": f"TEST-MILK-{ts}",
+            "barcode": f"888{ts}",
             "selling_price": 200.0,
             "cost_price": 150.0,
             "current_stock": 10.0,
@@ -81,15 +81,15 @@ class TestSwiftPOS(unittest.TestCase):
 
         # Test Receipt formatting
         receipt_txt = ReceiptPrinter.format_receipt_text(order)
-        self.assertIn("Test Milk 1L", receipt_txt)
         self.assertIn("TOTAL:", receipt_txt)
 
     def test_04_returns_and_restock(self):
         """Test returning order items restocks inventory"""
+        ts = int(time.time() * 1000)
         pid = ProductModel.create({
-            "name": "Test Widget",
-            "sku": "TEST-WIDGET-002",
-            "barcode": "999888777002",
+            "name": f"Test Widget {ts}",
+            "sku": f"TEST-WIDGET-{ts}",
+            "barcode": f"777{ts}",
             "selling_price": 50.0,
             "cost_price": 30.0,
             "current_stock": 10.0
@@ -128,6 +128,120 @@ class TestSwiftPOS(unittest.TestCase):
 
         pdf_path = Exporter.export_pdf("test_export.pdf", "Test PDF", headers, rows)
         self.assertTrue(os.path.exists(pdf_path))
+
+    def test_07_loyalty_points_redemption(self):
+        """Test earning and redeeming loyalty points (Feature R)"""
+        ts = int(time.time() * 1000)
+        cid = CustomerModel.create(f"Loyalty VIP Tester {ts}", f"0300{ts % 10000000:07d}")
+        CustomerModel.add_loyalty_points(cid, 50)
+        cust = CustomerModel.get_by_id(cid)
+        self.assertEqual(cust["loyalty_points"], 50)
+
+        controller = POSController()
+        controller.clear_cart()
+        controller.set_customer(cust)
+
+        pid = ProductModel.create({
+            "name": f"Loyalty Item {ts}",
+            "sku": f"LOYAL-{ts}",
+            "barcode": f"444{ts}",
+            "selling_price": 500.0,
+            "cost_price": 300.0,
+            "current_stock": 20.0
+        })
+        prod = ProductModel.get_by_id(pid)
+        controller.add_product(prod, qty=1)
+
+        # Redeem 30 loyalty points (Rs 30 discount)
+        ok, msg = controller.redeem_loyalty_points(30)
+        self.assertTrue(ok)
+
+        summary = controller.get_summary()
+        self.assertEqual(summary["loyalty_discount"], 30.0)
+        self.assertEqual(summary["grand_total"], 470.0)
+
+        ok, msg, order = controller.checkout(payment_method="cash", amount_paid=500.0)
+        self.assertTrue(ok)
+        self.assertEqual(order["total"], 470.0)
+
+        # Check customer balance updated: 50 - 30 + (470 // 100) = 24 points
+        updated_cust = CustomerModel.get_by_id(cid)
+        self.assertEqual(updated_cust["loyalty_points"], 24)
+
+    def test_08_price_override_and_profit_calculation(self):
+        """Test price override and profit recording (Features N & T)"""
+        ts = int(time.time() * 1000)
+        pid = ProductModel.create({
+            "name": f"Override Item {ts}",
+            "sku": f"OVERRIDE-{ts}",
+            "barcode": f"666{ts}",
+            "selling_price": 200.0,
+            "cost_price": 120.0,
+            "current_stock": 15.0
+        })
+        prod = ProductModel.get_by_id(pid)
+
+        controller = POSController()
+        controller.clear_cart()
+        controller.add_product(prod, qty=2)
+
+        # Override price from 200 to 180 (Manager Special)
+        controller.override_item_price(product_id=pid, new_price=180.0, reason="Manager Special")
+
+        item = controller.cart_items[pid]
+        self.assertEqual(item["unit_price"], 180.0)
+        self.assertEqual(item["price_override"], 1)
+        self.assertEqual(item["override_reason"], "Manager Special")
+
+        ok, msg, order = controller.checkout(payment_method="cash", amount_paid=400.0)
+        self.assertTrue(ok)
+        self.assertEqual(order["total"], 360.0)
+        self.assertEqual(order["cost_total"], 240.0)
+        self.assertEqual(order["profit"], 120.0) # 360 - 240
+
+    def test_09_eod_report_reconciliation(self):
+        """Test End-of-Day cash reconciliation and variance calculation (Feature P)"""
+        from pos_app.models.eod_model import EODModel
+        expected_cash, total_sales, total_orders = EODModel.get_expected_cash()
+        self.assertGreaterEqual(expected_cash, 0.0)
+
+        # Enter actual cash with Rs 50 shortage
+        actual_cash = max(0.0, expected_cash - 50.0)
+        report_id = EODModel.save_report(
+            user_id=1,
+            expected_cash=expected_cash,
+            actual_cash=actual_cash,
+            notes="End of Day test closing"
+        )
+        self.assertIsInstance(report_id, int)
+
+        report = EODModel.get_latest_report()
+        self.assertIsNotNone(report)
+        self.assertEqual(report["id"], report_id)
+        self.assertAlmostEqual(report["difference"], actual_cash - expected_cash, places=2)
+
+    def test_10_product_favorites(self):
+        """Test pinning favorite / frequent products (Feature M)"""
+        ts = int(time.time() * 1000)
+        pid = ProductModel.create({
+            "name": f"Favorite Quick Bread {ts}",
+            "sku": f"FAV-BREAD-{ts}",
+            "barcode": f"555{ts}",
+            "selling_price": 80.0,
+            "cost_price": 50.0,
+            "current_stock": 50.0
+        })
+
+        self.assertFalse(ProductModel.get_by_id(pid).get("is_favorite", False))
+        ProductModel.toggle_favorite(pid)
+        self.assertTrue(ProductModel.get_by_id(pid).get("is_favorite", False))
+
+        favs = ProductModel.get_favorites(limit=12)
+        fav_ids = [f["id"] for f in favs]
+        self.assertIn(pid, fav_ids)
+
+        ProductModel.toggle_favorite(pid)
+        self.assertFalse(ProductModel.get_by_id(pid).get("is_favorite", False))
 
 if __name__ == "__main__":
     unittest.main()

@@ -111,6 +111,30 @@ Designed for high-speed checkout counters:
 
 ---
 
+## Commercial Retail Features (Features L – U)
+
+- **L. Quick-Add Unknown Barcodes**: When an unrecognized barcode is scanned, the cashier is prompted to immediately register product name, price, and category without breaking the selling flow.
+- **M. Favorites / Frequent Shelf**: Pin up to 12 frequent items as quick-access chips directly above the POS catalog grid.
+- **N. POS Price Override**: Administrators and authorized cashiers can override selling prices per cart item with an audit reason logged in the activity trail.
+- **O. Customer Facing Display Bar**: Real-time display banner indicating the active item, unit price, quantity, and running order total.
+- **P. End-of-Day (EOD) Reconciliation Wizard**: Guided day-close wizard calculating expected drawer cash, accepting counted drawer cash, highlighting short/over variances, and archiving printable closing statements.
+- **Q. Product Variants**: Support for parent-child product relationships (e.g. Apparel sizes/colors) with unique barcodes and stock.
+- **R. Customer Loyalty Points**: Configurable point accrual rate (default 1 point per Rs 100 spent) and 1-click point redemption discount at checkout.
+- **S. Auto-Reorder PO Generator**: One-click generation of purchase orders pre-populated with all products at or below safety stock thresholds.
+- **T. Profit & Margin Visibility**: Line-item and order-level gross profit and percentage margin calculations visible exclusively to Admin accounts.
+- **U. 1-Click Quick Returns**: Instant return modal directly on the POS screen displaying the last 10 transactions for rapid refunds and inventory restocking.
+
+---
+
+## Visual Design System — "Slate & Indigo"
+
+- **Palette**: Permanent dark slate sidebar (`#1E293B`, `#334155` active, 3px `#6366F1` indicator bar), cool neutral background (`#F8F9FB`), and indigo-600 action accents (`#4F46E5`).
+- **Collapsible Sidebar**: 200px expanded menu toggles smoothly into a 64px compact icon-only rail (`≡` button).
+- **Typography**: Windows-native **Segoe UI** scale with monospace typography strictly reserved for numbers, quantities, prices, and order identifiers.
+- **Tone**: Professional sentence-case labels, no decorative cartoon emojis, and clean card dividers.
+
+---
+
 ## Running from Python Source
 
 ### Prerequisites
