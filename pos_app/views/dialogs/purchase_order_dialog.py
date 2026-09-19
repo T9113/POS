@@ -6,7 +6,7 @@ from pos_app.models.settings_model import SettingsModel
 from pos_app.controllers.inventory_controller import InventoryController
 
 class PurchaseOrderDialog(ctk.CTkToplevel):
-    def __init__(self, parent, on_complete=None):
+    def __init__(self, parent, on_complete=None, initial_items=None):
         super().__init__(parent)
         self.on_complete = on_complete
         self.title("New Purchase / Stock-In")
@@ -25,7 +25,7 @@ class PurchaseOrderDialog(ctk.CTkToplevel):
         self.geometry(f"+{x}+{y}")
 
         self.currency = SettingsModel.get("currency_symbol", "Rs")
-        self.po_items = [] # list of dicts: {product_id, name, qty, cost, total}
+        self.po_items = list(initial_items) if initial_items else [] # list of dicts: {product_id, product_name, quantity, cost_price, total}
         self.suppliers = SupplierModel.list_all()
         self._build_ui()
         self.bind("<Escape>", lambda e: self.destroy())
