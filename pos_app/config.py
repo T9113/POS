@@ -29,7 +29,7 @@ for path in [DATA_DIR, BACKUPS_DIR, EXPORTS_DIR, PRODUCT_IMAGES_DIR]:
     os.makedirs(path, exist_ok=True)
 
 # Application metadata
-APP_NAME = "SwiftPOS"
+APP_NAME = "OnesDev POS"
 APP_VERSION = "1.0.0"
 DEFAULT_CURRENCY = "Rs"
 DEFAULT_TAX_RATE = 0.0

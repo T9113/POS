@@ -23,7 +23,7 @@ class ReceiptPrinter:
         Supports 58mm (32 columns) and 80mm (42 columns).
         """
         settings = SettingsModel.get_all()
-        biz_name = settings.get("business_name", "SwiftPOS Retail Store")
+        biz_name = settings.get("business_name", "OnesDev POS Store")
         biz_addr = settings.get("business_address", "")
         biz_phone = settings.get("business_phone", "")
         biz_tax = settings.get("tax_number", "")
@@ -150,7 +150,7 @@ class ReceiptPrinter:
 
             h_printer = win32print.OpenPrinter(target_printer)
             try:
-                h_job = win32print.StartDocPrinter(h_printer, 1, ("SwiftPOS Receipt", None, "RAW"))
+                h_job = win32print.StartDocPrinter(h_printer, 1, ("OnesDev POS Receipt", None, "RAW"))
                 try:
                     win32print.StartPagePrinter(h_printer)
                     win32print.WritePrinter(h_printer, raw_data)

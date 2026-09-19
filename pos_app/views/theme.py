@@ -101,7 +101,144 @@ RADII = {
     "sidebar": 0
 }
 
+def _apply_component_patches():
+    """Patches CustomTkinter SegmentedButton and Tabview for premium interactive styling."""
+    if getattr(ctk.CTkSegmentedButton, "_swiftpos_patched", False):
+        return
+    ctk.CTkSegmentedButton._swiftpos_patched = True
+
+    # 1. Patch dynamic text color switching on selection/unselection
+    orig_select = ctk.CTkSegmentedButton._select_button_by_value
+    orig_unselect = ctk.CTkSegmentedButton._unselect_button_by_value
+
+    def custom_select(self, value):
+        orig_select(self, value)
+        if value in self._buttons_dict:
+            # Active pill text is always high-contrast crisp white on Indigo background
+            self._buttons_dict[value].configure(text_color=("#FFFFFF", "#FFFFFF"))
+
+    def custom_unselect(self, value):
+        orig_unselect(self, value)
+        if value in self._buttons_dict:
+            # Inactive tab text restores to elegant slate text
+            self._buttons_dict[value].configure(text_color=self._sb_text_color)
+
+    ctk.CTkSegmentedButton._select_button_by_value = custom_select
+    ctk.CTkSegmentedButton._unselect_button_by_value = custom_unselect
+
+    # 2. Modern Tabview proportions
+    ctk.CTkTabview._button_height = 34
+    ctk.CTkTabview._segmented_button_border_width = 2
+
+    # 3. Patch Tabview.__init__ to supply clean fonts and corner radius
+    orig_tabview_init = ctk.CTkTabview.__init__
+    def custom_tabview_init(self, *args, **kwargs):
+        if "segmented_button_font" not in kwargs or kwargs["segmented_button_font"] is None:
+            kwargs["segmented_button_font"] = ctk.CTkFont(family="Segoe UI", size=12, weight="bold")
+        if "corner_radius" not in kwargs or kwargs["corner_radius"] is None:
+            kwargs["corner_radius"] = 8
+        orig_tabview_init(self, *args, **kwargs)
+    ctk.CTkTabview.__init__ = custom_tabview_init
+
+    # 4. Patch SegmentedButton.__init__ to supply clean fonts and corner radius
+    orig_sb_init = ctk.CTkSegmentedButton.__init__
+    def custom_sb_init(self, *args, **kwargs):
+        if "font" not in kwargs or kwargs["font"] is None:
+            kwargs["font"] = ctk.CTkFont(family="Segoe UI", size=12, weight="bold")
+        if "corner_radius" not in kwargs or kwargs["corner_radius"] is None:
+            kwargs["corner_radius"] = 8
+        orig_sb_init(self, *args, **kwargs)
+    ctk.CTkSegmentedButton.__init__ = custom_sb_init
+
+
 def apply_theme(mode: str = "light"):
-    """Applies theme mode ('light' or 'dark')."""
+    """Applies theme mode ('light' or 'dark') and configures Slate & Indigo theme tokens."""
     ctk.set_appearance_mode(mode)
     ctk.set_default_color_theme("blue")
+
+    # Overwrite ThemeManager dictionary entries with Slate & Indigo commercial theme tokens
+    tm = ctk.ThemeManager.theme
+
+    # 1. CTkSegmentedButton - modern slate track with vibrant indigo pill
+    if "CTkSegmentedButton" in tm:
+        tm["CTkSegmentedButton"]["fg_color"] = ["#F1F5F9", "#1E2430"]
+        tm["CTkSegmentedButton"]["unselected_color"] = ["#F1F5F9", "#1E2430"]
+        tm["CTkSegmentedButton"]["unselected_hover_color"] = ["#E2E8F0", "#2B3545"]
+        tm["CTkSegmentedButton"]["selected_color"] = ["#4F46E5", "#6366F1"]
+        tm["CTkSegmentedButton"]["selected_hover_color"] = ["#4338CA", "#4F46E5"]
+        tm["CTkSegmentedButton"]["text_color"] = ["#475569", "#94A3B8"]
+        tm["CTkSegmentedButton"]["text_color_disabled"] = ["#94A3B8", "#64748B"]
+        tm["CTkSegmentedButton"]["corner_radius"] = 8
+        tm["CTkSegmentedButton"]["border_width"] = 2
+
+    # 2. CTkButton - primary indigo accent
+    if "CTkButton" in tm:
+        tm["CTkButton"]["fg_color"] = ["#4F46E5", "#6366F1"]
+        tm["CTkButton"]["hover_color"] = ["#4338CA", "#4F46E5"]
+        tm["CTkButton"]["text_color"] = ["#FFFFFF", "#FFFFFF"]
+        tm["CTkButton"]["corner_radius"] = 6
+
+    # 3. CTkOptionMenu & CTkComboBox
+    if "CTkOptionMenu" in tm:
+        tm["CTkOptionMenu"]["fg_color"] = ["#4F46E5", "#6366F1"]
+        tm["CTkOptionMenu"]["button_color"] = ["#4338CA", "#4F46E5"]
+        tm["CTkOptionMenu"]["button_hover_color"] = ["#3730A3", "#4338CA"]
+        tm["CTkOptionMenu"]["text_color"] = ["#FFFFFF", "#FFFFFF"]
+        tm["CTkOptionMenu"]["corner_radius"] = 6
+
+    if "CTkComboBox" in tm:
+        tm["CTkComboBox"]["border_color"] = ["#CBD5E1", "#334155"]
+        tm["CTkComboBox"]["button_color"] = ["#E2E8F0", "#2A2F3D"]
+        tm["CTkComboBox"]["button_hover_color"] = ["#CBD5E1", "#334155"]
+        tm["CTkComboBox"]["fg_color"] = ["#FFFFFF", "#1A1D27"]
+        tm["CTkComboBox"]["text_color"] = ["#0F172A", "#E2E8F0"]
+        tm["CTkComboBox"]["corner_radius"] = 6
+        tm["CTkComboBox"]["border_width"] = 1
+
+    # 4. CTkEntry & CTkTextbox
+    if "CTkEntry" in tm:
+        tm["CTkEntry"]["border_color"] = ["#CBD5E1", "#334155"]
+        tm["CTkEntry"]["fg_color"] = ["#FFFFFF", "#1A1D27"]
+        tm["CTkEntry"]["text_color"] = ["#0F172A", "#E2E8F0"]
+        tm["CTkEntry"]["placeholder_text_color"] = ["#94A3B8", "#5A6478"]
+        tm["CTkEntry"]["corner_radius"] = 6
+        tm["CTkEntry"]["border_width"] = 1
+
+    if "CTkTextbox" in tm:
+        tm["CTkTextbox"]["border_color"] = ["#CBD5E1", "#334155"]
+        tm["CTkTextbox"]["fg_color"] = ["#FFFFFF", "#1A1D27"]
+        tm["CTkTextbox"]["text_color"] = ["#0F172A", "#E2E8F0"]
+        tm["CTkTextbox"]["corner_radius"] = 6
+        tm["CTkTextbox"]["border_width"] = 1
+
+    # 5. CTkSwitch & CTkCheckBox
+    if "CTkSwitch" in tm:
+        tm["CTkSwitch"]["progress_color"] = ["#4F46E5", "#6366F1"]
+        tm["CTkSwitch"]["fg_color"] = ["#CBD5E1", "#334155"]
+        tm["CTkSwitch"]["button_color"] = ["#FFFFFF", "#FFFFFF"]
+        tm["CTkSwitch"]["button_hover_color"] = ["#F1F5F9", "#E2E8F0"]
+
+    if "CTkCheckBox" in tm:
+        tm["CTkCheckBox"]["fg_color"] = ["#4F46E5", "#6366F1"]
+        tm["CTkCheckBox"]["border_color"] = ["#CBD5E1", "#334155"]
+        tm["CTkCheckBox"]["hover_color"] = ["#4338CA", "#4F46E5"]
+        tm["CTkCheckBox"]["checkmark_color"] = ["#FFFFFF", "#FFFFFF"]
+
+    # 6. CTkProgressBar & CTkScrollbar
+    if "CTkProgressBar" in tm:
+        tm["CTkProgressBar"]["progress_color"] = ["#4F46E5", "#6366F1"]
+        tm["CTkProgressBar"]["fg_color"] = ["#E2E8F0", "#2A2F3D"]
+
+    if "CTkScrollbar" in tm:
+        tm["CTkScrollbar"]["button_color"] = ["#CBD5E1", "#334155"]
+        tm["CTkScrollbar"]["button_hover_color"] = ["#94A3B8", "#475569"]
+
+    # 7. DropdownMenu
+    if "DropdownMenu" in tm:
+        tm["DropdownMenu"]["fg_color"] = ["#FFFFFF", "#1A1D27"]
+        tm["DropdownMenu"]["hover_color"] = ["#F1F5F9", "#262B3A"]
+        tm["DropdownMenu"]["text_color"] = ["#0F172A", "#E2E8F0"]
+
+    # 8. Apply dynamic component patches
+    _apply_component_patches()
+

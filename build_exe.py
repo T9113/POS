@@ -17,7 +17,7 @@ def build():
     build_dir = os.path.join(base_dir, "build")
 
     print("==================================================")
-    print("       Building SwiftPOS Standalone Executable    ")
+    print("       Building OnesDev POS Standalone Executable ")
     print("==================================================")
     print(f"Base Directory: {base_dir}")
     print(f"CustomTkinter Dir: {ctk_dir}")
@@ -33,7 +33,7 @@ def build():
         "--clean",
         "--onefile",
         "--windowed",
-        "--name=SwiftPOS",
+        "--name=OnesDevPOS",
         f"--icon={icon_path}",
         f"--add-data={add_data_ctk}",
         f"--add-data={add_data_assets}",
@@ -57,11 +57,11 @@ def build():
         print("\n❌ Build failed with error code:", ret)
         return False
 
-    exe_path = os.path.join(dist_dir, "SwiftPOS.exe")
+    exe_path = os.path.join(dist_dir, "OnesDevPOS.exe")
     if os.path.exists(exe_path):
         size_mb = os.path.getsize(exe_path) / (1024 * 1024)
         print("\n==================================================")
-        print(" [SUCCESS] SwiftPOS.exe built successfully!")
+        print(" [SUCCESS] OnesDevPOS.exe built successfully!")
         print(f" Executable Path: {exe_path}")
         print(f" File Size: {size_mb:.2f} MB (Under 50MB limit!)")
         print("==================================================")

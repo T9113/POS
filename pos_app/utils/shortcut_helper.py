@@ -18,7 +18,7 @@ def get_target_executable() -> tuple[str, str, str]:
 
     return exe_path, working_dir, icon_path
 
-def create_desktop_shortcut(name: str = "SwiftPOS.lnk") -> tuple[bool, str]:
+def create_desktop_shortcut(name: str = "OnesDev POS.lnk") -> tuple[bool, str]:
     """Creates a Windows Desktop shortcut pointing to the application executable."""
     try:
         user_profile = os.environ.get("USERPROFILE") or os.path.expanduser("~")
@@ -36,7 +36,7 @@ def create_desktop_shortcut(name: str = "SwiftPOS.lnk") -> tuple[bool, str]:
             shortcut = shell.CreateShortCut(shortcut_path)
             shortcut.TargetPath = exe_path
             shortcut.WorkingDirectory = working_dir
-            shortcut.Description = "SwiftPOS - 100% Offline Desktop Point of Sale"
+            shortcut.Description = "OnesDev POS - Desktop Point of Sale"
             if icon_path and os.path.exists(icon_path):
                 shortcut.IconLocation = f"{icon_path},0"
             shortcut.Save()
@@ -52,7 +52,7 @@ sLinkFile = "{shortcut_path}"
 Set oLink = oWS.CreateShortcut(sLinkFile)
 oLink.TargetPath = "{exe_path}"
 oLink.WorkingDirectory = "{working_dir}"
-oLink.Description = "SwiftPOS - 100% Offline Desktop Point of Sale"
+oLink.Description = "OnesDev POS - Desktop Point of Sale"
 oLink.Save
 '''
         with open(vbs_script, "w", encoding="utf-8") as f:

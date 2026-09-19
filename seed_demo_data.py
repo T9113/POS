@@ -78,6 +78,10 @@ def seed_data(extra_stress_count: int = 0):
     print("Initializing database...")
     init_database()
 
+    from pos_app.models.settings_model import SettingsModel
+    SettingsModel.set("business_name", "OnesDev POS Store")
+    SettingsModel.set("receipt_header", "Welcome to OnesDev POS Store")
+
     print("Seeding suppliers...")
     suppliers = [
         ("Metro Cash & Carry Wholesale", "042-111-786-786", "wholesale@metro.com", "Raiwind Road, Lahore"),
@@ -183,7 +187,7 @@ def seed_data(extra_stress_count: int = 0):
 
         disc = 50.0 if subtotal > 1000 and i % 3 == 0 else 0.0
         grand_total = subtotal - disc
-        method = "cash" if i % 3 != 0 else ("card" if i % 2 == 0 else "credit")
+        method = "cash" if i % 3 != 0 else ("split" if i % 2 == 0 else "credit")
         cust_id = random.choice(cust_ids) if method == "credit" or i % 2 == 0 else None
 
         with get_db() as conn:

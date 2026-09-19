@@ -4,7 +4,7 @@ Internationalization (i18n) support for English and Urdu (with RTL support).
 
 STRINGS = {
     "en": {
-        "app_title": "SwiftPOS - Offline Desktop Point of Sale",
+        "app_title": "OnesDev POS - Offline Desktop Point of Sale",
         "dashboard": "Dashboard",
         "pos": "Point of Sale",
         "products": "Products",

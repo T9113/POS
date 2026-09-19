@@ -65,7 +65,7 @@ def main():
     if sys.platform == "win32":
         try:
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(f"SwiftPOS.App.{APP_VERSION}")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(f"OnesDevPOS.App.{APP_VERSION}")
         except Exception:
             pass
 

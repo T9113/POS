@@ -65,7 +65,7 @@ class MainWindow(ctk.CTkFrame):
         self.btn_toggle_sidebar.pack(side="left", padx=(0, 8))
 
         ctk.CTkLabel(brand_box, text="⚡", font=("Segoe UI", 18)).pack(side="left", padx=(0, 6))
-        biz_name = SettingsModel.get("business_name", "SwiftPOS")
+        biz_name = SettingsModel.get("business_name", "OnesDev POS")
         self.lbl_brand = ctk.CTkLabel(brand_box, text=biz_name, font=FONTS["title_md"], text_color=COLORS["primary"])
         self.lbl_brand.pack(side="left")
 
@@ -150,11 +150,6 @@ class MainWindow(ctk.CTkFrame):
             font=FONTS["body_sm"], text_color=COLORS["text_secondary"]
         )
         self.lbl_status_sales.pack(side="left", padx=16)
-
-        ctk.CTkLabel(
-            self.status_bar, text="🟢 100% Offline • Local SQLite Database (Portable)",
-            font=FONTS["body_sm"], text_color=COLORS["success"]
-        ).pack(side="right", padx=16)
 
     def _build_sidebar_menu(self):
         ctk.CTkFrame(self.sidebar, height=8, fg_color="transparent").pack()

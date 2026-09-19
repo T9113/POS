@@ -17,19 +17,19 @@ class LoginView(ctk.CTkFrame):
         card.pack_propagate(False)
 
         # Header branding
-        biz_name = SettingsModel.get("business_name", "SwiftPOS")
+        biz_name = SettingsModel.get("business_name", "OnesDev POS Store")
 
         ctk.CTkLabel(
             card, text="🛒", font=("Segoe UI", 42)
         ).pack(pady=(35, 5))
 
         ctk.CTkLabel(
-            card, text="SwiftPOS", font=FONTS["title_xl"],
+            card, text="OnesDev POS", font=FONTS["title_xl"],
             text_color=COLORS["primary"]
         ).pack(pady=(0, 2))
 
         ctk.CTkLabel(
-            card, text=f"{biz_name}  •  Offline Desktop POS",
+            card, text=f"{biz_name}  •  Desktop POS System",
             font=FONTS["body_sm"], text_color=COLORS["text_secondary"]
         ).pack(pady=(0, 25))
 

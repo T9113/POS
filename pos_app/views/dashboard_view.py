@@ -38,7 +38,7 @@ class DashboardView(ctk.CTkFrame):
 
         today_str = datetime.now().strftime("%A, %d %B %Y")
         ctk.CTkLabel(
-            greeting_frame, text=f"Today is {today_str}  •  System Ready & 100% Offline",
+            greeting_frame, text=f"Today is {today_str}  •  Store Active & Ready",
             font=FONTS["body_md"], text_color=COLORS["text_secondary"]
         ).pack(anchor="w")
 

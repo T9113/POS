@@ -15,7 +15,7 @@ class Exporter:
         ws.title = title[:30]
 
         # Business info header
-        biz_name = SettingsModel.get("business_name", "SwiftPOS")
+        biz_name = SettingsModel.get("business_name", "OnesDev POS")
         ws.append([biz_name])
         ws.append([f"{title} - Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"])
         ws.append([]) # Empty row
@@ -83,7 +83,7 @@ class Exporter:
         elements = []
         styles = getSampleStyleSheet()
 
-        biz_name = SettingsModel.get("business_name", "SwiftPOS")
+        biz_name = SettingsModel.get("business_name", "OnesDev POS")
         
         title_style = ParagraphStyle(
             "DocTitle",

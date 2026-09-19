@@ -1,7 +1,7 @@
 @echo off
-title SwiftPOS Windows Executable Builder
+title OnesDev POS Windows Executable Builder
 echo ========================================================
-echo   SwiftPOS - Standalone Windows Executable Builder
+echo   OnesDev POS - Standalone Windows Executable Builder
 echo ========================================================
 echo.
 
@@ -15,5 +15,5 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [DONE] SwiftPOS.exe is ready in the 'dist' folder!
+echo [DONE] OnesDevPOS.exe is ready in the 'dist' folder!
 pause

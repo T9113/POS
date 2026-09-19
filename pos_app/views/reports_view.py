@@ -52,7 +52,9 @@ class ReportsView(ctk.CTkFrame):
         
         self.opt_preset = ctk.CTkSegmentedButton(
             top_bar, values=["Today", "Yesterday", "This Week", "This Month", "All Time"],
-            command=self._on_preset_changed, font=FONTS["body_sm"], height=32
+            command=self._on_preset_changed,
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            height=32
         )
         self.opt_preset.set("Today")
         self.opt_preset.pack(side="left", padx=5)

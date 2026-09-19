@@ -322,10 +322,10 @@ def init_database(db_path: str = None):
         cursor.execute("SELECT COUNT(*) FROM settings")
         if cursor.fetchone()[0] == 0:
             default_settings = {
-                "business_name": "SwiftPOS Retail Store",
+                "business_name": "OnesDev POS Store",
                 "business_address": "123 Main Commercial Boulevard",
                 "business_phone": "0300-1234567",
-                "business_email": "store@swiftpos.local",
+                "business_email": "store@onesdev.local",
                 "tax_number": "TR-10029384",
                 "currency_symbol": "Rs",
                 "currency_position": "before",
@@ -335,7 +335,7 @@ def init_database(db_path: str = None):
                 "tax_name": "VAT",
                 "tax_percentage": "0",
                 "tax_type": "exclusive",
-                "receipt_header": "Welcome to SwiftPOS Store",
+                "receipt_header": "Welcome to OnesDev POS Store",
                 "receipt_footer": "Thank you for shopping with us!\nReturn within 7 days with receipt.",
                 "receipt_width": "80mm",
                 "auto_print": "0",
