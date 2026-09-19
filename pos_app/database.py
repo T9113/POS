@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
+    color_hex TEXT DEFAULT '#4F46E5',
     sort_order INTEGER DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1
 );
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS products (
     sku TEXT UNIQUE,
     barcode TEXT,
     category_id INTEGER,
+    parent_product_id INTEGER,
     unit TEXT DEFAULT 'piece',
     cost_price REAL NOT NULL DEFAULT 0.0,
     selling_price REAL NOT NULL DEFAULT 0.0,
@@ -40,10 +42,12 @@ CREATE TABLE IF NOT EXISTS products (
     current_stock REAL DEFAULT 0.0,
     image_path TEXT,
     description TEXT,
+    is_favorite INTEGER DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL
+    FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    FOREIGN KEY(parent_product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
 -- Customers table
@@ -55,6 +59,7 @@ CREATE TABLE IF NOT EXISTS customers (
     address TEXT,
     notes TEXT,
     balance REAL DEFAULT 0.0,
+    loyalty_points REAL DEFAULT 0.0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -80,6 +85,8 @@ CREATE TABLE IF NOT EXISTS orders (
     discount_percent REAL NOT NULL DEFAULT 0.0,
     tax_amount REAL NOT NULL DEFAULT 0.0,
     total REAL NOT NULL DEFAULT 0.0,
+    cost_total REAL DEFAULT 0.0,
+    profit REAL DEFAULT 0.0,
     amount_paid REAL NOT NULL DEFAULT 0.0,
     change_due REAL NOT NULL DEFAULT 0.0,
     payment_method TEXT NOT NULL,
@@ -99,9 +106,11 @@ CREATE TABLE IF NOT EXISTS order_items (
     product_name TEXT NOT NULL,
     quantity REAL NOT NULL,
     unit_price REAL NOT NULL,
+    cost_price REAL DEFAULT 0.0,
     discount REAL DEFAULT 0.0,
     total REAL NOT NULL,
-    cost_price REAL DEFAULT 0.0,
+    price_override INTEGER DEFAULT 0,
+    override_reason TEXT,
     FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE,
     FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE SET NULL
 );
@@ -136,6 +145,7 @@ CREATE TABLE IF NOT EXISTS stock_adjustments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     product_id INTEGER NOT NULL,
     user_id INTEGER,
+    type TEXT DEFAULT 'adjustment',
     quantity_change REAL NOT NULL,
     reason TEXT NOT NULL,
     note TEXT,
@@ -154,6 +164,13 @@ CREATE TABLE IF NOT EXISTS expenses (
     user_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+-- Expense Categories table
+CREATE TABLE IF NOT EXISTS expense_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    is_active INTEGER DEFAULT 1
 );
 
 -- Settings table
@@ -193,7 +210,24 @@ CREATE TABLE IF NOT EXISTS activity_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
     action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id INTEGER,
     detail TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+-- End of Day (EOD) Reports table
+CREATE TABLE IF NOT EXISTS eod_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    date TEXT NOT NULL,
+    total_sales REAL NOT NULL DEFAULT 0.0,
+    total_orders INTEGER NOT NULL DEFAULT 0,
+    expected_cash REAL NOT NULL DEFAULT 0.0,
+    actual_cash REAL NOT NULL DEFAULT 0.0,
+    difference REAL NOT NULL DEFAULT 0.0,
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id)
 );
@@ -207,6 +241,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_num ON orders(order_number);
 CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
+CREATE INDEX IF NOT EXISTS idx_activity_date ON activity_log(created_at);
 """
 
 @contextmanager
@@ -215,7 +250,6 @@ def get_db(db_path: str = None):
     target_path = db_path or DB_PATH
     conn = sqlite3.connect(target_path, timeout=20.0)
     conn.row_factory = sqlite3.Row
-    # Enable WAL mode for concurrent read/write and foreign keys
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA foreign_keys=ON;")
     try:
@@ -227,16 +261,40 @@ def get_db(db_path: str = None):
     finally:
         conn.close()
 
+def _run_migrations(conn):
+    """Safely apply column additions if migrating an existing database."""
+    cursor = conn.cursor()
+    migrations = [
+        ("products", "parent_product_id", "INTEGER"),
+        ("products", "is_favorite", "INTEGER DEFAULT 0"),
+        ("categories", "color_hex", "TEXT DEFAULT '#4F46E5'"),
+        ("customers", "loyalty_points", "REAL DEFAULT 0.0"),
+        ("orders", "cost_total", "REAL DEFAULT 0.0"),
+        ("orders", "profit", "REAL DEFAULT 0.0"),
+        ("order_items", "price_override", "INTEGER DEFAULT 0"),
+        ("order_items", "override_reason", "TEXT"),
+        ("stock_adjustments", "type", "TEXT DEFAULT 'adjustment'"),
+        ("activity_log", "entity_type", "TEXT"),
+        ("activity_log", "entity_id", "INTEGER")
+    ]
+    for table, col, col_type in migrations:
+        try:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+        except sqlite3.OperationalError:
+            pass # Column already exists
+
 def init_database(db_path: str = None):
-    """Initialize database tables, indexes, and seed default data if not present."""
+    """Initialize database tables, indexes, migrations, and seed default data."""
     target_path = db_path or DB_PATH
     is_first_run = not os.path.exists(target_path)
 
     with get_db(target_path) as conn:
         conn.executescript(SCHEMA_SQL)
+        _run_migrations(conn)
         
-        # Seed default users
         cursor = conn.cursor()
+
+        # Seed default users
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             admin_pwd = hash_password("admin")
@@ -284,7 +342,9 @@ def init_database(db_path: str = None):
                 "printer_name": "Default",
                 "sound_enabled": "1",
                 "language": "en",
-                "theme_mode": "dark",
+                "theme_mode": "light",
+                "loyalty_rate": "100", # spend 100 to earn 1 pt
+                "loyalty_point_val": "1.0", # 1 pt = 1 currency unit
                 "setup_completed": "0"
             }
             cursor.executemany(
