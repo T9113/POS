@@ -11,6 +11,7 @@ class POSController:
         self.selected_customer = None
         self.order_discount_amount = 0.0
         self.order_discount_percent = 0.0
+        self.loyalty_points_redeemed = 0.0
         self.order_note = ""
 
     def clear_cart(self):
@@ -18,17 +19,21 @@ class POSController:
         self.selected_customer = None
         self.order_discount_amount = 0.0
         self.order_discount_percent = 0.0
+        self.loyalty_points_redeemed = 0.0
         self.order_note = ""
 
     def set_customer(self, customer_dict: dict = None):
         self.selected_customer = customer_dict
+        if not customer_dict:
+            self.loyalty_points_redeemed = 0.0
 
-    def add_product_by_code(self, code: str, qty: float = 1.0) -> tuple[bool, str]:
+    def add_product_by_code(self, code: str, qty: float = 1.0) -> tuple[bool, str, dict]:
         """Looks up product by barcode or SKU and adds to cart."""
         product = ProductModel.get_by_barcode_or_sku(code)
         if not product:
-            return False, f"No product found with code '{code}'"
-        return self.add_product(product, qty)
+            return False, f"No product found with code '{code}'", None
+        ok, msg = self.add_product(product, qty)
+        return ok, msg, product
 
     def add_product(self, product: dict, qty: float = 1.0) -> tuple[bool, str]:
         pid = product["id"]
@@ -42,6 +47,8 @@ class POSController:
                 "cost_price": float(product.get("cost_price", 0.0)),
                 "quantity": float(qty),
                 "discount": 0.0,
+                "price_override": 0,
+                "override_reason": "",
                 "unit": product.get("unit", "piece"),
                 "max_stock": float(product.get("current_stock", 999999))
             }
@@ -75,6 +82,19 @@ class POSController:
                 item["discount"] = min(price, float(discount_value))
             self._recalc_item(product_id)
 
+    def override_item_price(self, product_id: int, new_price: float, reason: str) -> bool:
+        if product_id in self.cart_items:
+            item = self.cart_items[product_id]
+            item["unit_price"] = max(0.0, float(new_price))
+            item["price_override"] = 1
+            item["override_reason"] = reason.strip()
+            self._recalc_item(product_id)
+            user = AuthController.get_current_user()
+            user_id = user["id"] if user else 1
+            ActivityModel.log(user_id, "PRICE_OVERRIDE", f"Overrode price of {item['product_name']} to {new_price} ({reason})")
+            return True
+        return False
+
     def _recalc_item(self, product_id: int):
         item = self.cart_items[product_id]
         net_price = max(0.0, item["unit_price"] - item["discount"])
@@ -88,11 +108,21 @@ class POSController:
             self.order_discount_amount = float(value)
             self.order_discount_percent = 0.0
 
+    def redeem_loyalty_points(self, points: float):
+        if not self.selected_customer:
+            return False, "No customer attached"
+        avail = float(self.selected_customer.get("loyalty_points", 0))
+        if points > avail:
+            return False, f"Customer only has {avail:g} points"
+        self.loyalty_points_redeemed = float(points)
+        return True, f"Redeemed {points:g} points"
+
     def get_summary(self) -> dict:
         settings = SettingsModel.get_all()
         enable_tax = settings.get("enable_tax", "0") == "1"
         tax_pct = float(settings.get("tax_percentage", "0")) if enable_tax else 0.0
         tax_type = settings.get("tax_type", "exclusive")
+        point_val = float(settings.get("loyalty_point_val", "1.0"))
 
         subtotal = sum(item["total"] for item in self.cart_items.values())
         
@@ -103,17 +133,19 @@ class POSController:
         elif self.order_discount_amount > 0:
             bill_discount = min(subtotal, self.order_discount_amount)
 
-        net_subtotal = max(0.0, subtotal - bill_discount)
+        # Loyalty points discount
+        loyalty_discount = self.loyalty_points_redeemed * point_val
+        total_discount = bill_discount + loyalty_discount
+
+        net_subtotal = max(0.0, subtotal - total_discount)
 
         # Tax calculation
         tax_amount = 0.0
         if enable_tax and tax_pct > 0:
             if tax_type == "inclusive":
-                # Price includes tax: Tax = Subtotal - (Subtotal / (1 + rate))
                 tax_amount = round(net_subtotal - (net_subtotal / (1.0 + (tax_pct / 100.0))), 2)
                 grand_total = round(net_subtotal, 2)
             else:
-                # Exclusive: Tax is added on top
                 tax_amount = round((net_subtotal * tax_pct) / 100.0, 2)
                 grand_total = round(net_subtotal + tax_amount, 2)
         else:
@@ -121,7 +153,10 @@ class POSController:
 
         return {
             "subtotal": round(subtotal, 2),
-            "discount_amount": bill_discount,
+            "discount_amount": round(total_discount, 2),
+            "bill_discount": round(bill_discount, 2),
+            "loyalty_discount": round(loyalty_discount, 2),
+            "points_redeemed": self.loyalty_points_redeemed,
             "discount_percent": self.order_discount_percent,
             "tax_amount": tax_amount,
             "grand_total": grand_total,
@@ -141,6 +176,7 @@ class POSController:
             "items": list(self.cart_items.values()),
             "discount_amount": self.order_discount_amount,
             "discount_percent": self.order_discount_percent,
+            "loyalty_points_redeemed": self.loyalty_points_redeemed,
             "note": note or self.order_note
         }
 
@@ -161,20 +197,16 @@ class POSController:
 
         self.order_discount_amount = float(cart_data.get("discount_amount", 0.0))
         self.order_discount_percent = float(cart_data.get("discount_percent", 0.0))
+        self.loyalty_points_redeemed = float(cart_data.get("loyalty_points_redeemed", 0.0))
         self.order_note = cart_data.get("note", "")
 
         if target.get("customer_id"):
             self.selected_customer = CustomerModel.get_by_id(target["customer_id"])
 
-        # Delete from held table
         OrderModel.delete_held_order(held_id)
         return True, f"Held order #{held_id} restored to cart"
 
     def checkout(self, payment_method: str, amount_paid: float, note: str = "") -> tuple[bool, str, dict]:
-        """
-        Executes order checkout, records in database, decrements inventory stock.
-        Returns (success: bool, message: str, order_details: dict)
-        """
         if not self.cart_items:
             return False, "Cart is empty. Add products before checkout.", {}
 
@@ -183,7 +215,6 @@ class POSController:
         user = AuthController.get_current_user()
         user_id = user["id"] if user else 1
 
-        # Calculate change due
         if payment_method in ["cash", "card", "split"]:
             change_due = max(0.0, amount_paid - grand_total)
         else: # credit/due
@@ -207,18 +238,19 @@ class POSController:
             "change_due": change_due,
             "payment_method": payment_method,
             "payment_status": payment_status,
+            "points_redeemed": summary["points_redeemed"],
             "note": note or self.order_note,
             "status": "completed"
         }
 
         items = list(self.cart_items.values())
-        order_id, order_number = OrderModel.create_order(order_data, items)
+        order_id, order_number, loyalty_earned = OrderModel.create_order(order_data, items)
 
-        # Log activity
         ActivityModel.log(user_id, "NEW_SALE", f"Completed order {order_number} for {grand_total:,.2f}")
 
-        # Retrieve complete recorded order for receipt printing
         full_order = OrderModel.get_order_by_id(order_id)
-        self.clear_cart()
+        if full_order:
+            full_order["loyalty_earned"] = loyalty_earned
 
+        self.clear_cart()
         return True, f"Sale completed: {order_number}", full_order

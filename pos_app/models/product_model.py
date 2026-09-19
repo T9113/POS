@@ -32,6 +32,33 @@ class ProductModel:
             return dict(row) if row else None
 
     @staticmethod
+    def get_favorites(limit: int = 12):
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT p.*, c.name as category_name
+                FROM products p
+                LEFT JOIN categories c ON p.category_id = c.id
+                WHERE p.is_active = 1 AND p.is_favorite = 1
+                ORDER BY p.name ASC
+                LIMIT ?
+            """, (limit,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    @staticmethod
+    def toggle_favorite(product_id: int):
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE products 
+                SET is_favorite = CASE WHEN is_favorite = 1 THEN 0 ELSE 1 END
+                WHERE id = ?
+            """, (product_id,))
+            cursor.execute("SELECT is_favorite FROM products WHERE id = ?", (product_id,))
+            row = cursor.fetchone()
+            return row["is_favorite"] if row else 0
+
+    @staticmethod
     def search_products(query: str = "", category_id: int = None, active_only: bool = True,
                         limit: int = 50, offset: int = 0, sort_by: str = "name", sort_order: str = "ASC"):
         valid_sort_cols = {
@@ -107,15 +134,16 @@ class ProductModel:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO products (
-                    name, sku, barcode, category_id, unit, cost_price,
+                    name, sku, barcode, category_id, parent_product_id, unit, cost_price,
                     selling_price, wholesale_price, min_stock, current_stock,
-                    image_path, description, is_active, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    image_path, description, is_favorite, is_active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data["name"].strip(),
                 data.get("sku", "").strip() or None,
                 data.get("barcode", "").strip() or None,
                 data.get("category_id"),
+                data.get("parent_product_id"),
                 data.get("unit", "piece"),
                 float(data.get("cost_price", 0.0)),
                 float(data.get("selling_price", 0.0)),
@@ -124,6 +152,7 @@ class ProductModel:
                 float(data.get("current_stock", 0.0)),
                 data.get("image_path"),
                 data.get("description", ""),
+                int(data.get("is_favorite", 0)),
                 int(data.get("is_active", 1)),
                 now, now
             ))
@@ -136,16 +165,17 @@ class ProductModel:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE products SET
-                    name = ?, sku = ?, barcode = ?, category_id = ?, unit = ?,
+                    name = ?, sku = ?, barcode = ?, category_id = ?, parent_product_id = ?, unit = ?,
                     cost_price = ?, selling_price = ?, wholesale_price = ?,
                     min_stock = ?, current_stock = ?, image_path = ?,
-                    description = ?, is_active = ?, updated_at = ?
+                    description = ?, is_favorite = ?, is_active = ?, updated_at = ?
                 WHERE id = ?
             """, (
                 data["name"].strip(),
                 data.get("sku", "").strip() or None,
                 data.get("barcode", "").strip() or None,
                 data.get("category_id"),
+                data.get("parent_product_id"),
                 data.get("unit", "piece"),
                 float(data.get("cost_price", 0.0)),
                 float(data.get("selling_price", 0.0)),
@@ -154,6 +184,7 @@ class ProductModel:
                 float(data.get("current_stock", 0.0)),
                 data.get("image_path"),
                 data.get("description", ""),
+                int(data.get("is_favorite", 0)),
                 int(data.get("is_active", 1)),
                 now,
                 product_id
@@ -232,10 +263,6 @@ class ProductModel:
 
     @staticmethod
     def bulk_update_prices(product_ids: list, adjustment_type: str, value: float):
-        """
-        adjustment_type: 'percent' or 'fixed'
-        value: e.g. 10 for +10% or fixed 50
-        """
         if not product_ids:
             return 0
         placeholders = ",".join("?" for _ in product_ids)

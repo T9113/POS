@@ -40,13 +40,13 @@ class CustomerModel:
             return cursor.fetchone()[0]
 
     @staticmethod
-    def create(name: str, phone: str = "", email: str = "", address: str = "", notes: str = "", balance: float = 0.0):
+    def create(name: str, phone: str = "", email: str = "", address: str = "", notes: str = "", balance: float = 0.0, loyalty_points: float = 0.0):
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO customers (name, phone, email, address, notes, balance)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (name.strip(), phone.strip(), email.strip(), address.strip(), notes.strip(), float(balance)))
+                INSERT INTO customers (name, phone, email, address, notes, balance, loyalty_points)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (name.strip(), phone.strip(), email.strip(), address.strip(), notes.strip(), float(balance), float(loyalty_points)))
             return cursor.lastrowid
 
     @staticmethod
@@ -66,6 +66,20 @@ class CustomerModel:
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("UPDATE customers SET balance = balance + ? WHERE id = ?", (amount, customer_id))
+            return cursor.rowcount > 0
+
+    @staticmethod
+    def add_loyalty_points(customer_id: int, points: float):
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?", (points, customer_id))
+            return cursor.rowcount > 0
+
+    @staticmethod
+    def redeem_loyalty_points(customer_id: int, points: float):
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE customers SET loyalty_points = MAX(0.0, loyalty_points - ?) WHERE id = ?", (points, customer_id))
             return cursor.rowcount > 0
 
     @staticmethod

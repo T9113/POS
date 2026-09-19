@@ -1,6 +1,8 @@
 import json
 from datetime import datetime
 from pos_app.database import get_db
+from pos_app.models.settings_model import SettingsModel
+from pos_app.models.customer_model import CustomerModel
 
 class OrderModel:
     @staticmethod
@@ -15,11 +17,31 @@ class OrderModel:
     @staticmethod
     def create_order(order_data: dict, items: list):
         """
-        Creates an order and order items atomically, decrements inventory,
-        and adjusts customer balance if on credit.
+        Creates an order and order items atomically, calculates cost_total and profit,
+        decrements inventory, handles customer loyalty points, and adjusts customer balance if on credit.
         """
         order_number = order_data.get("order_number") or OrderModel.generate_order_number()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Calculate cost_total and profit
+        cost_total = sum(float(item.get("cost_price", 0.0)) * float(item.get("quantity", 1)) for item in items)
+        total = float(order_data.get("total", 0.0))
+        tax_amount = float(order_data.get("tax_amount", 0.0))
+        # Profit = Net revenue (excluding tax) minus product cost
+        profit = round((total - tax_amount) - cost_total, 2)
+
+        # Loyalty points calculation
+        customer_id = order_data.get("customer_id")
+        loyalty_earned = 0.0
+        points_redeemed = float(order_data.get("points_redeemed", 0.0))
+
+        if customer_id:
+            loyalty_rate = float(SettingsModel.get("loyalty_rate", "100") or 100)
+            if loyalty_rate > 0:
+                loyalty_earned = float(int(total // loyalty_rate))
+                CustomerModel.add_loyalty_points(customer_id, loyalty_earned)
+            if points_redeemed > 0:
+                CustomerModel.redeem_loyalty_points(customer_id, points_redeemed)
 
         with get_db() as conn:
             cursor = conn.cursor()
@@ -27,18 +49,20 @@ class OrderModel:
                 INSERT INTO orders (
                     order_number, customer_id, user_id, subtotal,
                     discount_amount, discount_percent, tax_amount, total,
-                    amount_paid, change_due, payment_method, payment_status,
-                    note, status, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    cost_total, profit, amount_paid, change_due, payment_method,
+                    payment_status, note, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 order_number,
-                order_data.get("customer_id"),
+                customer_id,
                 order_data.get("user_id"),
                 float(order_data.get("subtotal", 0.0)),
                 float(order_data.get("discount_amount", 0.0)),
                 float(order_data.get("discount_percent", 0.0)),
-                float(order_data.get("tax_amount", 0.0)),
-                float(order_data.get("total", 0.0)),
+                tax_amount,
+                total,
+                cost_total,
+                profit,
                 float(order_data.get("amount_paid", 0.0)),
                 float(order_data.get("change_due", 0.0)),
                 order_data.get("payment_method", "cash"),
@@ -53,17 +77,20 @@ class OrderModel:
                 cursor.execute("""
                     INSERT INTO order_items (
                         order_id, product_id, product_name, quantity,
-                        unit_price, discount, total, cost_price
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        unit_price, cost_price, discount, total,
+                        price_override, override_reason
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     order_id,
                     item.get("product_id"),
                     item.get("product_name"),
                     float(item.get("quantity", 1)),
                     float(item.get("unit_price", 0.0)),
+                    float(item.get("cost_price", 0.0)),
                     float(item.get("discount", 0.0)),
                     float(item.get("total", 0.0)),
-                    float(item.get("cost_price", 0.0))
+                    int(item.get("price_override", 0)),
+                    item.get("override_reason", "")
                 ))
                 # Decrement inventory stock
                 if item.get("product_id"):
@@ -73,22 +100,21 @@ class OrderModel:
                         WHERE id = ?
                     """, (float(item.get("quantity", 1)), now, item["product_id"]))
 
-            # If payment method is Credit/Due or customer has unpaid balance
-            customer_id = order_data.get("customer_id")
-            total = float(order_data.get("total", 0.0))
+            # If customer has unpaid balance
             paid = float(order_data.get("amount_paid", 0.0))
             due = total - paid
             if customer_id and due > 0:
                 cursor.execute("UPDATE customers SET balance = balance + ? WHERE id = ?", (due, customer_id))
 
-            return order_id, order_number
+            return order_id, order_number, loyalty_earned
 
     @staticmethod
     def get_order_by_id(order_id: int):
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT o.*, c.name as customer_name, c.phone as customer_phone, u.full_name as cashier_name
+                SELECT o.*, c.name as customer_name, c.phone as customer_phone, c.loyalty_points as customer_loyalty_balance,
+                       u.full_name as cashier_name
                 FROM orders o
                 LEFT JOIN customers c ON o.customer_id = c.id
                 LEFT JOIN users u ON o.user_id = u.id
@@ -174,7 +200,7 @@ class OrderModel:
             cursor.execute(sql, params)
             return cursor.fetchone()[0]
 
-    # Held Orders functionality
+    # Held Orders
     @staticmethod
     def hold_order(cart_data: dict, customer_id: int = None, user_id: int = None, note: str = ""):
         with get_db() as conn:
@@ -213,10 +239,6 @@ class OrderModel:
     # Returns / Refunds
     @staticmethod
     def process_return(order_id: int, user_id: int, returned_items: list, total_refund: float, reason: str):
-        """
-        Records return, restocks inventory, logs return record.
-        returned_items: list of dicts with {product_id, quantity, refund_amount}
-        """
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with get_db() as conn:
             cursor = conn.cursor()
@@ -249,21 +271,13 @@ class OrderModel:
             cursor.execute("""
                 SELECT 
                     COUNT(*) as total_orders,
-                    COALESCE(SUM(total), 0.0) as total_sales
+                    COALESCE(SUM(total), 0.0) as total_sales,
+                    COALESCE(AVG(total), 0.0) as avg_order_value,
+                    COALESCE(SUM(profit), 0.0) as gross_profit
                 FROM orders
                 WHERE date(created_at) = date(?) AND status != 'cancelled'
             """, (today_date,))
             sales_row = cursor.fetchone()
-
-            # Today's profit = revenue of order items minus cost of order items
-            cursor.execute("""
-                SELECT 
-                    COALESCE(SUM((oi.unit_price - oi.discount) * oi.quantity - (oi.cost_price * oi.quantity)), 0.0) as gross_profit
-                FROM order_items oi
-                JOIN orders o ON oi.order_id = o.id
-                WHERE date(o.created_at) = date(?) AND o.status != 'cancelled'
-            """, (today_date,))
-            profit_row = cursor.fetchone()
 
             # Top 5 products today
             cursor.execute("""
@@ -277,9 +291,22 @@ class OrderModel:
             """, (today_date,))
             top_products = [dict(row) for row in cursor.fetchall()]
 
+            # Recent 5 orders today
+            cursor.execute("""
+                SELECT o.order_number, o.created_at, o.total, o.payment_method, c.name as customer_name
+                FROM orders o
+                LEFT JOIN customers c ON o.customer_id = c.id
+                WHERE date(o.created_at) = date(?) AND o.status != 'cancelled'
+                ORDER BY o.created_at DESC
+                LIMIT 5
+            """, (today_date,))
+            recent_orders = [dict(row) for row in cursor.fetchall()]
+
             return {
                 "total_orders": sales_row["total_orders"] if sales_row else 0,
                 "total_sales": sales_row["total_sales"] if sales_row else 0.0,
-                "gross_profit": profit_row["gross_profit"] if profit_row else 0.0,
-                "top_products": top_products
+                "avg_order_value": sales_row["avg_order_value"] if sales_row else 0.0,
+                "gross_profit": sales_row["gross_profit"] if sales_row else 0.0,
+                "top_products": top_products,
+                "recent_orders": recent_orders
             }
