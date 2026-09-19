@@ -38,7 +38,7 @@ class SalesView(ctk.CTkFrame):
 
         # Payment Method filter
         self.opt_method = ctk.CTkOptionMenu(
-            top_bar, values=["All Payment Methods", "Cash", "Card", "Credit", "Split"],
+            top_bar, values=["All Payment Methods", "Cash", "Credit", "Split"],
             height=36, font=FONTS["body_sm"], command=lambda v: self._on_filter_changed()
         )
         self.opt_method.pack(side="left", padx=5)

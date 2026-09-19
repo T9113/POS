@@ -22,6 +22,13 @@ class SwiftPOSApp(ctk.CTk):
         # Auto-create database and tables on first run
         init_database()
 
+        # One-time desktop shortcut creation on first install / launch
+        try:
+            from pos_app.utils.shortcut_helper import setup_first_run_shortcut
+            setup_first_run_shortcut()
+        except Exception:
+            pass
+
         # Load appearance theme from settings
         theme = SettingsModel.get("theme_mode", "dark")
         apply_theme(theme)

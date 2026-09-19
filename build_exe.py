@@ -43,6 +43,8 @@ def build():
         "--hidden-import=openpyxl",
         "--hidden-import=reportlab",
         "--hidden-import=win32print",
+        "--hidden-import=win32com",
+        "--hidden-import=win32com.client",
         "--hidden-import=sqlite3",
         os.path.join(base_dir, "pos_app", "main.py")
     ]

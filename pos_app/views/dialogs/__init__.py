@@ -13,3 +13,4 @@ from pos_app.views.dialogs.quick_add_product_dialog import QuickAddProductDialog
 from pos_app.views.dialogs.price_override_dialog import PriceOverrideDialog
 from pos_app.views.dialogs.quick_return_dialog import QuickReturnDialog
 from pos_app.views.dialogs.eod_dialog import EODDialog
+from pos_app.views.dialogs.category_manager_dialog import CategoryManagerDialog

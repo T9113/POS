@@ -85,6 +85,39 @@ class SettingsView(ctk.CTkFrame):
             height=42, text_color="#FFFFFF", command=self._save_biz_profile
         ).pack(anchor="w")
 
+        # Desktop Shortcut & Categories Quick Access
+        ctk.CTkFrame(scroll, height=1, fg_color=COLORS["border"]).pack(fill="x", pady=20)
+        ctk.CTkLabel(scroll, text="Desktop & System Tools", font=FONTS["title_md"], text_color=COLORS["text_primary"]).pack(anchor="w", pady=(0, 10))
+
+        tools_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        tools_row.pack(fill="x")
+
+        ctk.CTkButton(
+            tools_row, text="🖥️ Create Desktop Shortcut", font=FONTS["title_sm"],
+            fg_color=COLORS["bg_surface"], hover_color=COLORS["bg_hover"],
+            text_color=COLORS["text_primary"], height=40,
+            command=self._create_desktop_shortcut
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            tools_row, text="📁 Manage Product Categories", font=FONTS["title_sm"],
+            fg_color=COLORS["bg_surface"], hover_color=COLORS["bg_hover"],
+            text_color=COLORS["text_primary"], height=40,
+            command=self._open_category_manager
+        ).pack(side="left")
+
+    def _create_desktop_shortcut(self):
+        from pos_app.utils.shortcut_helper import create_desktop_shortcut
+        ok, path = create_desktop_shortcut()
+        if ok:
+            ctk.CTkInputDialog(text=f"Desktop shortcut created successfully:\n{path}", title="Shortcut Created")
+        else:
+            ctk.CTkInputDialog(text=f"Could not create shortcut:\n{path}", title="Shortcut Error")
+
+    def _open_category_manager(self):
+        from pos_app.views.dialogs.category_manager_dialog import CategoryManagerDialog
+        CategoryManagerDialog(self)
+
     def _save_biz_profile(self):
         updates = {
             "business_name": self.entry_biz_name.get().strip(),

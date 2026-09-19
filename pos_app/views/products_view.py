@@ -7,6 +7,7 @@ from pos_app.models.settings_model import SettingsModel
 from pos_app.controllers.product_controller import ProductController
 from pos_app.views.dialogs.product_form_dialog import ProductFormDialog
 from pos_app.views.dialogs.stock_adjust_dialog import StockAdjustDialog
+from pos_app.views.dialogs.category_manager_dialog import CategoryManagerDialog
 
 class ProductsView(ctk.CTkFrame):
     def __init__(self, parent):
@@ -80,6 +81,12 @@ class ProductsView(ctk.CTkFrame):
             top_bar, text="💲 Bulk Price", font=FONTS["body_sm"],
             fg_color=COLORS["bg_hover"], text_color=COLORS["text_primary"],
             height=36, width=90, command=self._bulk_price_update
+        ).pack(side="right", padx=5)
+
+        ctk.CTkButton(
+            top_bar, text="📁 Categories", font=FONTS["body_sm"],
+            fg_color=COLORS["bg_hover"], text_color=COLORS["text_primary"],
+            height=36, width=95, command=self._open_category_manager
         ).pack(side="right", padx=5)
 
         # 2. Products Table
@@ -321,3 +328,12 @@ class ProductsView(ctk.CTkFrame):
             msg = f"Imported: {res['imported']} new\nUpdated: {res['updated']} existing\nFailed: {res['failed']}"
             ctk.CTkInputDialog(text=msg, title="Import Summary")
             self._refresh_table()
+
+    def _open_category_manager(self):
+        CategoryManagerDialog(self, on_changed=self._on_categories_updated)
+
+    def _on_categories_updated(self):
+        categories = CategoryModel.list_all(active_only=True)
+        cat_names = ["All Categories"] + [c["name"] for c in categories]
+        self.opt_category.configure(values=cat_names)
+        self._refresh_table()

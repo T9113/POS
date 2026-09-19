@@ -68,7 +68,7 @@ class PaymentDialog(ctk.CTkToplevel):
         ctk.CTkLabel(container, text="Select Payment Method:", font=FONTS["title_sm"], text_color=COLORS["text_primary"]).pack(anchor="w", padx=20, pady=(5, 4))
         self.method_seg = ctk.CTkSegmentedButton(
             container,
-            values=["Cash", "Card", "Split", "Credit / Due"],
+            values=["Cash", "Split", "Credit / Due"],
             command=self._on_method_change,
             height=38,
             font=FONTS["body_lg"]
