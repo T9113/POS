@@ -20,6 +20,7 @@ from pos_app.utils.shortcut_helper import create_desktop_shortcut
 from pos_app.utils.security import verify_password
 from pos_app.views.dialogs.qt_category_dialog import QtCategoryManagerDialog
 from pos_app.utils.license_manager import LicenseManager
+from pos_app.utils.icon_helper import get_icon
 
 
 class QtSettingsView(QWidget):
@@ -69,27 +70,27 @@ class QtSettingsView(QWidget):
         # 1. Business Profile
         self.tab_biz = QWidget()
         self._build_biz_tab()
-        self.tabs.addTab(self.tab_biz, "🏢 Business Profile")
+        self.tabs.addTab(self.tab_biz, get_icon("building", COLORS["text_secondary"], 16), "Business Profile")
 
         # 2. Taxes & Currency
         self.tab_tax = QWidget()
         self._build_tax_tab()
-        self.tabs.addTab(self.tab_tax, "💰 Taxes & Currency")
+        self.tabs.addTab(self.tab_tax, get_icon("dollar", COLORS["text_secondary"], 16), "Taxes & Currency")
 
         # 3. Receipt & Printer
         self.tab_print = QWidget()
         self._build_print_tab()
-        self.tabs.addTab(self.tab_print, "🖨️ Receipt & Printer")
+        self.tabs.addTab(self.tab_print, get_icon("printer", COLORS["text_secondary"], 16), "Receipt & Printer")
 
         # 4. User Roles
         self.tab_users = QWidget()
         self._build_users_tab()
-        self.tabs.addTab(self.tab_users, "👥 User Accounts")
+        self.tabs.addTab(self.tab_users, get_icon("user", COLORS["text_secondary"], 16), "User Accounts")
 
         # 5. Backup & Reset
         self.tab_data = QWidget()
         self._build_data_tab()
-        self.tabs.addTab(self.tab_data, "💾 Backup & Reset")
+        self.tabs.addTab(self.tab_data, get_icon("database", COLORS["text_secondary"], 16), "Backup & Reset")
 
         main_layout.addWidget(self.tabs)
 
@@ -141,7 +142,7 @@ class QtSettingsView(QWidget):
 
         c_layout.addLayout(form)
 
-        btn_save = AnimatedButton("💾 Save Business Profile", container, variant="primary")
+        btn_save = AnimatedButton("Save Business Profile", container, variant="primary", icon_name="check")
         btn_save.setFixedHeight(40)
         btn_save.setFixedWidth(220)
         btn_save.clicked.connect(self._save_biz_profile)
@@ -158,12 +159,12 @@ class QtSettingsView(QWidget):
         c_layout.addWidget(lbl_tools)
 
         tools_row = QHBoxLayout()
-        btn_shortcut = AnimatedButton("🖥️ Create Desktop Shortcut", container, variant="secondary")
+        btn_shortcut = AnimatedButton("Create Desktop Shortcut", container, variant="secondary", icon_name="lightning")
         btn_shortcut.setFixedHeight(38)
         btn_shortcut.clicked.connect(self._create_shortcut)
         tools_row.addWidget(btn_shortcut)
 
-        btn_cats = AnimatedButton("🏷️ Manage Product Categories", container, variant="secondary")
+        btn_cats = AnimatedButton("Manage Product Categories", container, variant="secondary", icon_name="tag")
         btn_cats.setFixedHeight(38)
         btn_cats.clicked.connect(self._open_category_manager)
         tools_row.addWidget(btn_cats)
@@ -177,7 +178,7 @@ class QtSettingsView(QWidget):
         line_lic.setStyleSheet(f"background-color: {COLORS['border']};")
         c_layout.addWidget(line_lic)
 
-        lbl_lic_t = QLabel("🔒 Software License & Machine Binding", container)
+        lbl_lic_t = QLabel("Software License & Machine Binding", container)
         lbl_lic_t.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {COLORS['text_primary']};")
         c_layout.addWidget(lbl_lic_t)
 
@@ -307,7 +308,7 @@ class QtSettingsView(QWidget):
 
         c_layout.addLayout(tax_form)
 
-        btn_save_tax = AnimatedButton("💾 Save Currency & Tax Settings", container, variant="primary")
+        btn_save_tax = AnimatedButton("Save Currency & Tax Settings", container, variant="primary", icon_name="check")
         btn_save_tax.setFixedHeight(40)
         btn_save_tax.setFixedWidth(260)
         btn_save_tax.clicked.connect(self._save_tax_settings)
@@ -392,13 +393,13 @@ class QtSettingsView(QWidget):
             self.cmb_printers.setCurrentIndex(idx)
         pr_row.addWidget(self.cmb_printers, stretch=1)
 
-        btn_test_pr = AnimatedButton("🖨️ Test Print", container, variant="secondary")
+        btn_test_pr = AnimatedButton("Test Print", container, variant="secondary", icon_name="printer")
         btn_test_pr.setFixedHeight(38)
         btn_test_pr.clicked.connect(self._test_printer)
         pr_row.addWidget(btn_test_pr)
         c_layout.addLayout(pr_row)
 
-        btn_save_pr = AnimatedButton("💾 Save Receipt Settings", container, variant="primary")
+        btn_save_pr = AnimatedButton("Save Receipt Settings", container, variant="primary", icon_name="check")
         btn_save_pr.setFixedHeight(40)
         btn_save_pr.setFixedWidth(240)
         btn_save_pr.clicked.connect(self._save_print_settings)
@@ -571,7 +572,7 @@ class QtSettingsView(QWidget):
         b_layout.setContentsMargins(20, 18, 20, 18)
         b_layout.setSpacing(8)
 
-        lbl_b_title = QLabel("💾 Standalone Database Backup & Restore", b_card)
+        lbl_b_title = QLabel("Standalone Database Backup & Restore", b_card)
         lbl_b_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {COLORS['text_primary']};")
         b_layout.addWidget(lbl_b_title)
 
@@ -583,12 +584,12 @@ class QtSettingsView(QWidget):
         b_layout.addWidget(lbl_b_desc)
 
         b_btns = QHBoxLayout()
-        btn_bk = AnimatedButton("📥 Backup Database Now", b_card, variant="primary")
+        btn_bk = AnimatedButton("Backup Database Now", b_card, variant="primary", icon_name="upload")
         btn_bk.setFixedHeight(38)
         btn_bk.clicked.connect(self._do_backup)
         b_btns.addWidget(btn_bk)
 
-        btn_res = AnimatedButton("📤 Restore Database from File", b_card, variant="secondary")
+        btn_res = AnimatedButton("Restore Database from File", b_card, variant="secondary", icon_name="download")
         btn_res.setFixedHeight(38)
         btn_res.clicked.connect(self._do_restore)
         b_btns.addWidget(btn_res)
@@ -610,7 +611,7 @@ class QtSettingsView(QWidget):
         d_layout.setContentsMargins(20, 18, 20, 18)
         d_layout.setSpacing(8)
 
-        lbl_d_title = QLabel("⚠️ Danger Zone: Maintenance & Data Reset", d_card)
+        lbl_d_title = QLabel("Danger Zone: Maintenance & Data Reset", d_card)
         lbl_d_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {COLORS['danger']};")
         d_layout.addWidget(lbl_d_title)
 

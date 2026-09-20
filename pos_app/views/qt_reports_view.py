@@ -15,6 +15,7 @@ from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
 from pos_app.models.report_model import ReportModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.utils.exporter import Exporter
+from pos_app.utils.icon_helper import get_icon
 
 
 class QtReportsView(QWidget):
@@ -64,7 +65,7 @@ class QtReportsView(QWidget):
         top_layout.setContentsMargins(16, 12, 16, 12)
         top_layout.setSpacing(12)
 
-        lbl_filter = QLabel("📅 Date Filter:", top_card)
+        lbl_filter = QLabel("Date Filter:", top_card)
         lbl_filter.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {COLORS['text_primary']};")
         top_layout.addWidget(lbl_filter)
 
@@ -114,12 +115,12 @@ class QtReportsView(QWidget):
 
         top_layout.addStretch()
 
-        btn_excel = AnimatedButton("📊 Export Excel", top_card, variant="secondary")
+        btn_excel = AnimatedButton("Export Excel", top_card, variant="secondary", icon_name="excel")
         btn_excel.setFixedHeight(36)
         btn_excel.clicked.connect(self._export_excel)
         top_layout.addWidget(btn_excel)
 
-        btn_pdf = AnimatedButton("📄 Export PDF", top_card, variant="primary")
+        btn_pdf = AnimatedButton("Export PDF", top_card, variant="primary", icon_name="pdf")
         btn_pdf.setFixedHeight(36)
         btn_pdf.clicked.connect(self._export_pdf)
         top_layout.addWidget(btn_pdf)
@@ -168,7 +169,7 @@ class QtReportsView(QWidget):
         l_prod.setContentsMargins(16, 16, 16, 16)
         self.table_prod = self._create_table(["Product Name", "Units Sold", "Total Revenue", "Gross Profit"])
         l_prod.addWidget(self.table_prod)
-        self.tabs.addTab(self.tab_prod, "📦 Product Sales")
+        self.tabs.addTab(self.tab_prod, get_icon("products", COLORS["text_secondary"], 16), "Product Sales")
 
         # Category Tab
         self.tab_cat = QWidget()
@@ -176,7 +177,7 @@ class QtReportsView(QWidget):
         l_cat.setContentsMargins(16, 16, 16, 16)
         self.table_cat = self._create_table(["Category Name", "Units Sold", "Total Revenue"])
         l_cat.addWidget(self.table_cat)
-        self.tabs.addTab(self.tab_cat, "🏷️ Category Sales")
+        self.tabs.addTab(self.tab_cat, get_icon("tag", COLORS["text_secondary"], 16), "Category Sales")
 
         # Peak Hours Tab
         self.tab_hour = QWidget()
@@ -184,7 +185,7 @@ class QtReportsView(QWidget):
         l_hour.setContentsMargins(16, 16, 16, 16)
         self.table_hour = self._create_table(["Time Window", "Transactions", "Total Sales"])
         l_hour.addWidget(self.table_hour)
-        self.tabs.addTab(self.tab_hour, "⏰ Peak Hours")
+        self.tabs.addTab(self.tab_hour, get_icon("dashboard", COLORS["text_secondary"], 16), "Peak Hours")
 
         # Payment Methods Tab
         self.tab_pay = QWidget()
@@ -192,7 +193,7 @@ class QtReportsView(QWidget):
         l_pay.setContentsMargins(16, 16, 16, 16)
         self.table_pay = self._create_table(["Payment Method", "Order Count", "Total Revenue"])
         l_pay.addWidget(self.table_pay)
-        self.tabs.addTab(self.tab_pay, "💳 Payment Methods")
+        self.tabs.addTab(self.tab_pay, get_icon("credit_card", COLORS["text_secondary"], 16), "Payment Methods")
 
         # Top Customers Tab
         self.tab_cust = QWidget()
@@ -200,7 +201,7 @@ class QtReportsView(QWidget):
         l_cust.setContentsMargins(16, 16, 16, 16)
         self.table_cust = self._create_table(["Customer Name", "Phone", "Total Orders", "Total Spent"])
         l_cust.addWidget(self.table_cust)
-        self.tabs.addTab(self.tab_cust, "👥 Top Customers")
+        self.tabs.addTab(self.tab_cust, get_icon("customers", COLORS["text_secondary"], 16), "Top Customers")
 
         main_layout.addWidget(self.tabs, stretch=1)
 

@@ -48,7 +48,15 @@ class QtPOSView(QWidget):
         left_panel.setSpacing(12)
 
         # Search Bar
-        search_card = DropShadowCard(self, corner_radius=10, blur_radius=12, offset_y=2, opacity=15)
+        search_card = QFrame(self)
+        search_card.setObjectName("SearchCard")
+        search_card.setStyleSheet(f"""
+            QFrame#SearchCard {{
+                background-color: {COLORS['bg_surface']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 10px;
+            }}
+        """)
         search_layout = QHBoxLayout(search_card)
         search_layout.setContentsMargins(12, 10, 12, 10)
 
@@ -72,7 +80,7 @@ class QtPOSView(QWidget):
         self.cat_scroll.setWidgetResizable(True)
         self.cat_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.cat_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.cat_scroll.setStyleSheet("border: none; background: transparent;")
+        self.cat_scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         self.cat_container = QWidget()
         self.cat_layout = QHBoxLayout(self.cat_container)
@@ -84,7 +92,7 @@ class QtPOSView(QWidget):
         # Products Grid Container (Scrollable)
         self.prod_scroll = QScrollArea(self)
         self.prod_scroll.setWidgetResizable(True)
-        self.prod_scroll.setStyleSheet("border: none; background: transparent;")
+        self.prod_scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         self.prod_grid_widget = QWidget()
         self.prod_grid_layout = QGridLayout(self.prod_grid_widget)
@@ -98,7 +106,15 @@ class QtPOSView(QWidget):
         # ==========================================
         # RIGHT PANEL: Shopping Cart & Checkout
         # ==========================================
-        cart_card = DropShadowCard(self, corner_radius=12, blur_radius=20, offset_y=4, opacity=25)
+        cart_card = QFrame(self)
+        cart_card.setObjectName("CartCard")
+        cart_card.setStyleSheet(f"""
+            QFrame#CartCard {{
+                background-color: {COLORS['bg_surface']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 14px;
+            }}
+        """)
         cart_layout = QVBoxLayout(cart_card)
         cart_layout.setContentsMargins(18, 16, 18, 16)
         cart_layout.setSpacing(12)
@@ -147,9 +163,11 @@ class QtPOSView(QWidget):
         self.cart_table.setHorizontalHeaderLabels(["Product", "Price", "Qty", "Total", ""])
         self.cart_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.cart_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.cart_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.cart_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self.cart_table.setColumnWidth(2, 90)
         self.cart_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self.cart_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.cart_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        self.cart_table.setColumnWidth(4, 34)
         self.cart_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.cart_table.verticalHeader().setVisible(False)
         cart_layout.addWidget(self.cart_table)
@@ -247,7 +265,7 @@ class QtPOSView(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-        btn_all = AnimatedButton("🏷️ All Products", variant="primary" if self.active_category_id is None else "secondary")
+        btn_all = AnimatedButton(" All Products", variant="primary" if self.active_category_id is None else "secondary", icon_name="tag", icon_size=13)
         btn_all.setFixedHeight(34)
         btn_all.clicked.connect(lambda: self._select_category(None))
         self.cat_layout.addWidget(btn_all)
@@ -269,12 +287,12 @@ class QtPOSView(QWidget):
 
     def _load_customers(self):
         self.cmb_customer.clear()
-        self.cmb_customer.addItem("👤 Walk-in Customer (No Khata)", None)
+        self.cmb_customer.addItem("Walk-in Customer (No Khata)", None)
         custs = CustomerModel.get_all()
         for c in custs:
             bal = c.get("balance", 0.0)
             bal_str = f" [Due: {self.currency} {bal:,.2f}]" if bal > 0 else ""
-            self.cmb_customer.addItem(f"👤 {c['name']}{bal_str}", c)
+            self.cmb_customer.addItem(f"{c['name']}{bal_str}", c)
 
     def _load_products(self):
         # Clear products grid
@@ -294,9 +312,21 @@ class QtPOSView(QWidget):
             self.prod_grid_layout.addWidget(card, r, c)
 
     def _create_product_tile(self, p: dict) -> QFrame:
-        tile = DropShadowCard(self.prod_grid_widget, corner_radius=10, blur_radius=10, offset_y=2, opacity=15)
+        tile = QFrame(self.prod_grid_widget)
+        tile.setObjectName("ProductTile")
         tile.setFixedHeight(115)
         tile.setCursor(Qt.CursorShape.PointingHandCursor)
+        tile.setStyleSheet(f"""
+            QFrame#ProductTile {{
+                background-color: {COLORS['bg_surface']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 10px;
+            }}
+            QFrame#ProductTile:hover {{
+                border: 1.5px solid {COLORS['primary']};
+                background-color: {COLORS['bg_hover']};
+            }}
+        """)
 
         layout = QVBoxLayout(tile)
         layout.setContentsMargins(12, 10, 12, 10)
@@ -368,6 +398,7 @@ class QtPOSView(QWidget):
         self._render_cart()
 
     def _render_cart(self):
+        self.cart_table.clearContents()
         items = self.cart_controller.get_items()
         self.cart_table.setRowCount(len(items))
 

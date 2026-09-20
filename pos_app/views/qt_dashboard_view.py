@@ -44,7 +44,7 @@ class QtDashboardView(QWidget):
         hour = datetime.now().hour
         greeting = "Good Morning" if hour < 12 else ("Good Afternoon" if hour < 18 else "Good Evening")
 
-        lbl_greeting = QLabel(f"{greeting}, {user_name} 👋", greeting_card)
+        lbl_greeting = QLabel(f"{greeting}, {user_name}", greeting_card)
         lbl_greeting.setStyleSheet(f"font-size: 20px; font-weight: bold; color: {COLORS['text_primary']};")
         left_greet.addWidget(lbl_greeting)
 
@@ -57,13 +57,13 @@ class QtDashboardView(QWidget):
         greet_layout.addStretch()
 
         # Quick Actions
-        btn_new_sale = AnimatedButton("⚡ New Sale (F1)", greeting_card, variant="primary")
+        btn_new_sale = AnimatedButton(" New Sale (F1)", greeting_card, variant="primary", icon_name="cart", icon_size=15)
         btn_new_sale.setFixedHeight(42)
         btn_new_sale.clicked.connect(lambda: self.navigate_to.emit("pos"))
         greet_layout.addWidget(btn_new_sale)
 
         if AuthController.is_admin():
-            btn_add_prod = AnimatedButton("+ Add Product", greeting_card, variant="secondary")
+            btn_add_prod = AnimatedButton(" Add Product", greeting_card, variant="secondary", icon_name="plus", icon_size=14)
             btn_add_prod.setFixedHeight(42)
             btn_add_prod.setToolTip("Go to Products Catalog")
             btn_add_prod.clicked.connect(lambda: self.navigate_to.emit("products"))
@@ -90,7 +90,7 @@ class QtDashboardView(QWidget):
         layout.addLayout(kpi_layout)
 
         # 3. Recent Transactions Section
-        lbl_recent = QLabel("📋 Recent Completed Transactions", self)
+        lbl_recent = QLabel("Recent Completed Transactions", self)
         lbl_recent.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {COLORS['text_primary']}; margin-top: 6px;")
         layout.addWidget(lbl_recent)
 

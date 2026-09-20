@@ -14,6 +14,7 @@ from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
 from pos_app.models.product_model import ProductModel
 from pos_app.models.supplier_model import SupplierModel
 from pos_app.models.settings_model import SettingsModel
+from pos_app.utils.icon_helper import get_icon
 
 
 class QtInventoryView(QWidget):
@@ -51,17 +52,17 @@ class QtInventoryView(QWidget):
         # Tab 1: Low Stock & Reorder
         self.tab_low = QWidget()
         self._build_low_stock_tab()
-        self.tabs.addTab(self.tab_low, "⚠️ Low Stock & Reorder")
+        self.tabs.addTab(self.tab_low, get_icon("alert", COLORS["warning"], 16), "Low Stock & Reorder")
 
         # Tab 2: Purchases / Stock-In
         self.tab_stockin = QWidget()
         self._build_stockin_tab()
-        self.tabs.addTab(self.tab_stockin, "📦 Purchases / Stock-In")
+        self.tabs.addTab(self.tab_stockin, get_icon("download", COLORS["text_secondary"], 16), "Purchases / Stock-In")
 
         # Tab 3: Suppliers Directory
         self.tab_suppliers = QWidget()
         self._build_suppliers_tab()
-        self.tabs.addTab(self.tab_suppliers, "🏭 Suppliers Directory")
+        self.tabs.addTab(self.tab_suppliers, get_icon("building", COLORS["text_secondary"], 16), "Suppliers Directory")
 
         layout.addWidget(self.tabs)
 
@@ -131,7 +132,7 @@ class QtInventoryView(QWidget):
         self.spn_p_qty.setFixedHeight(36)
         fl.addWidget(self.spn_p_qty)
 
-        btn_commit = AnimatedButton("📥 Add Stock-In", form_card, variant="primary")
+        btn_commit = AnimatedButton("Add Stock-In", form_card, variant="primary", icon_name="download")
         btn_commit.setFixedHeight(36)
         btn_commit.clicked.connect(self._add_stock_in)
         fl.addWidget(btn_commit)
@@ -222,7 +223,7 @@ class QtInventoryView(QWidget):
         supps = SupplierModel.get_all()
         self.cmb_p_supp.clear()
         for s in supps:
-            self.cmb_p_supp.addItem(f"🏭 {s['name']}", s["id"])
+            self.cmb_p_supp.addItem(s["name"], s["id"])
 
         # Load Suppliers table
         self.tbl_supp.setRowCount(len(supps))

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from pos_app.utils.icon_helper import get_icon
 from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.utils.receipt_printer import ReceiptPrinter
@@ -37,8 +38,9 @@ class QtSalesView(QWidget):
         top_layout.setContentsMargins(16, 12, 16, 12)
         top_layout.setSpacing(12)
 
-        lbl_search = QLabel("🔍", top_card)
-        lbl_search.setStyleSheet("font-size: 15px;")
+        lbl_search = QLabel(top_card)
+        lbl_search.setPixmap(get_icon("search", color=COLORS["text_muted"], size=16).pixmap(16, 16))
+        lbl_search.setFixedSize(18, 18)
         top_layout.addWidget(lbl_search)
 
         self.txt_search = QLineEdit(top_card)
@@ -53,7 +55,7 @@ class QtSalesView(QWidget):
         self.cmb_method.currentIndexChanged.connect(self._on_search_changed)
         top_layout.addWidget(self.cmb_method)
 
-        btn_refresh = AnimatedButton("🔄 Refresh", top_card, variant="secondary")
+        btn_refresh = AnimatedButton("Refresh", top_card, variant="secondary")
         btn_refresh.setFixedHeight(36)
         btn_refresh.clicked.connect(self.refresh_orders)
         top_layout.addWidget(btn_refresh)
@@ -123,7 +125,7 @@ class QtSalesView(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-        lbl_empty = QLabel("👈 Select any order from the table to inspect receipt details and line items.", self.right_card)
+        lbl_empty = QLabel("Select any order from the table to inspect receipt details and line items.", self.right_card)
         lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_empty.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 14px;")
         self.right_layout.addWidget(lbl_empty)
@@ -173,7 +175,7 @@ class QtSalesView(QWidget):
                 item.widget().deleteLater()
 
         # Full order details with items
-        full_order = OrderModel.get_by_id(order["id"]) or order
+        full_order = OrderModel.get_order_by_id(order["id"]) or order
 
         # Order Header
         lbl_ord_num = QLabel(f"Order #{full_order.get('order_number')}", self.right_card)
@@ -257,7 +259,7 @@ class QtSalesView(QWidget):
         self.right_layout.addWidget(totals_card)
 
         # Action Buttons: Reprint Receipt
-        btn_reprint = AnimatedButton("🖨️ Re-Print Receipt", self.right_card, variant="primary")
+        btn_reprint = AnimatedButton("Re-Print Receipt", self.right_card, variant="primary", icon_name="printer")
         btn_reprint.setFixedHeight(38)
         btn_reprint.clicked.connect(lambda: self._reprint_receipt(full_order))
         self.right_layout.addWidget(btn_reprint)

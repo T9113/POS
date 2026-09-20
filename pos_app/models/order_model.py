@@ -134,6 +134,8 @@ class OrderModel:
             order_dict["items"] = [dict(row) for row in cursor.fetchall()]
             return order_dict
 
+    get_by_id = get_order_by_id
+
     @staticmethod
     def list_orders(query: str = "", date_from: str = None, date_to: str = None,
                     payment_method: str = None, limit: int = 50, offset: int = 0,

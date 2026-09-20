@@ -16,6 +16,7 @@ from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.views.dialogs.qt_customer_dialog import QtCustomerDialog
 from pos_app.utils.exporter import Exporter
+from pos_app.utils.icon_helper import get_icon
 
 
 class QtCustomersView(QWidget):
@@ -40,8 +41,9 @@ class QtCustomersView(QWidget):
         top_layout.setContentsMargins(16, 12, 16, 12)
         top_layout.setSpacing(12)
 
-        lbl_search = QLabel("🔍", top_card)
-        lbl_search.setStyleSheet("font-size: 15px;")
+        lbl_search = QLabel(top_card)
+        lbl_search.setPixmap(get_icon("search", COLORS["text_muted"], 18).pixmap(18, 18))
+        lbl_search.setFixedWidth(24)
         top_layout.addWidget(lbl_search)
 
         self.txt_search = QLineEdit(top_card)
@@ -50,12 +52,12 @@ class QtCustomersView(QWidget):
         self.txt_search.textChanged.connect(self.refresh_customers)
         top_layout.addWidget(self.txt_search, stretch=1)
 
-        btn_excel = AnimatedButton("📊 Export Excel", top_card, variant="secondary")
+        btn_excel = AnimatedButton("Export Excel", top_card, variant="secondary", icon_name="excel")
         btn_excel.setFixedHeight(36)
         btn_excel.clicked.connect(self._export_excel)
         top_layout.addWidget(btn_excel)
 
-        btn_add = AnimatedButton("+ Add Customer", top_card, variant="primary")
+        btn_add = AnimatedButton("Add Customer", top_card, variant="primary", icon_name="plus")
         btn_add.setFixedHeight(36)
         btn_add.setToolTip("Register new customer account")
         btn_add.clicked.connect(self._open_add_customer)
@@ -126,7 +128,7 @@ class QtCustomersView(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-        lbl_empty = QLabel("👈 Select any customer to view account balance, notes, and purchase history.", self.right_card)
+        lbl_empty = QLabel("Select any customer to view account balance, notes, and purchase history.", self.right_card)
         lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_empty.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 14px;")
         self.right_layout.addWidget(lbl_empty)
@@ -175,18 +177,53 @@ class QtCustomersView(QWidget):
         self.right_layout.addWidget(lbl_name)
 
         info_box = QFrame(self.right_card)
-        info_box.setStyleSheet(f"background-color: {COLORS['bg_input']}; border: 1px solid {COLORS['border']}; border-radius: 8px; padding: 10px;")
+        info_box.setObjectName("CustomerInfoBox")
+        info_box.setStyleSheet(f"""
+            QFrame#CustomerInfoBox {{
+                background-color: {COLORS['bg_input']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 8px;
+                padding: 12px;
+            }}
+            QWidget {{
+                background: transparent;
+                border: none;
+            }}
+        """)
         inf_l = QVBoxLayout(info_box)
-        inf_l.setSpacing(4)
+        inf_l.setSpacing(6)
 
-        inf_l.addWidget(QLabel(f"📞 Phone: {customer.get('phone') or 'Not provided'}"))
-        inf_l.addWidget(QLabel(f"✉️ Email: {customer.get('email') or 'Not provided'}"))
-        inf_l.addWidget(QLabel(f"📍 Address: {customer.get('address') or 'Not provided'}"))
+        def make_row(icon_name, text):
+            r_w = QWidget(info_box)
+            r_l = QHBoxLayout(r_w)
+            r_l.setContentsMargins(0, 0, 0, 0)
+            r_l.setSpacing(8)
+            i_lbl = QLabel(r_w)
+            i_lbl.setPixmap(get_icon(icon_name, COLORS["text_secondary"], 15).pixmap(15, 15))
+            i_lbl.setFixedWidth(18)
+            t_lbl = QLabel(text, r_w)
+            t_lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 13px;")
+            r_l.addWidget(i_lbl)
+            r_l.addWidget(t_lbl, stretch=1)
+            return r_w
+
+        inf_l.addWidget(make_row("phone", f"Phone: {customer.get('phone') or 'Not provided'}"))
+        inf_l.addWidget(make_row("mail", f"Email: {customer.get('email') or 'Not provided'}"))
+        inf_l.addWidget(make_row("map_pin", f"Address: {customer.get('address') or 'Not provided'}"))
 
         bal = customer.get("balance", 0.0)
-        lbl_bal = QLabel(f"💳 Khata / Credit Due: {self.currency} {bal:,.2f}")
+        bal_w = QWidget(info_box)
+        bal_l = QHBoxLayout(bal_w)
+        bal_l.setContentsMargins(0, 4, 0, 0)
+        bal_l.setSpacing(8)
+        bal_icon = QLabel(bal_w)
+        bal_icon.setPixmap(get_icon("credit_card", '#DC2626' if bal > 0 else '#059669', 16).pixmap(16, 16))
+        bal_icon.setFixedWidth(18)
+        lbl_bal = QLabel(f"Khata / Credit Due: {self.currency} {bal:,.2f}", bal_w)
         lbl_bal.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {'#DC2626' if bal > 0 else '#059669'};")
-        inf_l.addWidget(lbl_bal)
+        bal_l.addWidget(bal_icon)
+        bal_l.addWidget(lbl_bal, stretch=1)
+        inf_l.addWidget(bal_w)
 
         self.right_layout.addWidget(info_box)
 

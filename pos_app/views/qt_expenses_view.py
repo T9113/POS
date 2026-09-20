@@ -8,13 +8,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QTableWidget, QTableWidgetItem, QHeaderView, QComboBox,
-    QMessageBox
+    QMessageBox, QPushButton
 )
 
 from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
 from pos_app.models.expense_model import ExpenseModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.controllers.auth_controller import AuthController
+from pos_app.utils.icon_helper import get_icon
 
 
 class QtExpensesView(QWidget):
@@ -51,9 +52,9 @@ class QtExpensesView(QWidget):
         add_card = DropShadowCard(self, corner_radius=12)
         add_layout = QVBoxLayout(add_card)
         add_layout.setContentsMargins(18, 14, 18, 14)
-        add_layout.setSpacing(10)
+        add_layout.setSpacing(8)
 
-        lbl_form_t = QLabel("+ Record New Store Expense", add_card)
+        lbl_form_t = QLabel("Record New Store Expense", add_card)
         lbl_form_t.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {COLORS['text_primary']};")
         add_layout.addWidget(lbl_form_t)
 
@@ -70,6 +71,7 @@ class QtExpensesView(QWidget):
         self.txt_amount.setPlaceholderText(f"Amount ({self.currency}) *")
         self.txt_amount.setFixedHeight(38)
         self.txt_amount.setFixedWidth(140)
+        self.txt_amount.textChanged.connect(self._clear_amount_error)
         form_row.addWidget(self.txt_amount)
 
         self.txt_desc = QLineEdit(add_card)
@@ -77,12 +79,20 @@ class QtExpensesView(QWidget):
         self.txt_desc.setFixedHeight(38)
         form_row.addWidget(self.txt_desc, stretch=1)
 
-        btn_add = AnimatedButton("Save Expense", add_card, variant="primary")
+        btn_add = AnimatedButton("Save Expense", add_card, variant="primary", icon_name="plus")
         btn_add.setFixedHeight(38)
         btn_add.clicked.connect(self._add_expense)
         form_row.addWidget(btn_add)
 
         add_layout.addLayout(form_row)
+
+        # Inline Error Label
+        self.lbl_form_error = QLabel("", add_card)
+        self.lbl_form_error.setProperty("class", "error-label")
+        self.lbl_form_error.setStyleSheet(f"color: {COLORS['text_error']}; font-size: 11px; font-weight: 600;")
+        self.lbl_form_error.setVisible(False)
+        add_layout.addWidget(self.lbl_form_error)
+
         main_layout.addWidget(add_card)
 
         # 3. Expenses History Table Card
@@ -96,9 +106,11 @@ class QtExpensesView(QWidget):
         t_layout.addWidget(lbl_t_title)
 
         self.table_exp = QTableWidget(table_card)
-        self.table_exp.setColumnCount(4)
-        self.table_exp.setHorizontalHeaderLabels(["Category", "Description", "Date & Time", "Amount"])
+        self.table_exp.setColumnCount(5)
+        self.table_exp.setHorizontalHeaderLabels(["Category", "Description", "Date & Time", "Amount", "Action"])
         self.table_exp.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table_exp.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        self.table_exp.setColumnWidth(4, 70)
         self.table_exp.verticalHeader().setVisible(False)
         self.table_exp.setAlternatingRowColors(True)
         self.table_exp.setStyleSheet(f"""
@@ -124,6 +136,12 @@ class QtExpensesView(QWidget):
         t_layout.addWidget(self.table_exp)
         main_layout.addWidget(table_card, stretch=1)
 
+    def _clear_amount_error(self):
+        if self.txt_amount.property("error"):
+            self.txt_amount.setProperty("error", False)
+            self.txt_amount.style().polish(self.txt_amount)
+            self.lbl_form_error.setVisible(False)
+
     def refresh_expenses(self):
         self.currency = SettingsModel.get("currency_symbol", "Rs")
         tot = ExpenseModel.get_total_expenses()
@@ -144,6 +162,38 @@ class QtExpensesView(QWidget):
             amt_item.setForeground(Qt.GlobalColor.darkYellow)
             self.table_exp.setItem(r, 3, amt_item)
 
+            # Delete action button
+            exp_id = e.get("id")
+            btn_del = QPushButton(self.table_exp)
+            btn_del.setIcon(get_icon("trash", COLORS["danger"], 15))
+            btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_del.setToolTip("Delete Expense")
+            btn_del.setFixedSize(30, 28)
+            btn_del.setStyleSheet(f"""
+                QPushButton {{
+                    background: {COLORS['bg_input']};
+                    border: 1px solid {COLORS['border']};
+                    border-radius: 6px;
+                }}
+                QPushButton:hover {{
+                    background: {COLORS['danger_subtle']};
+                    border-color: {COLORS['danger']};
+                }}
+            """)
+            btn_del.clicked.connect(lambda _, eid=exp_id: self._delete_expense(eid))
+            self.table_exp.setCellWidget(r, 4, btn_del)
+
+    def _delete_expense(self, exp_id: int):
+        res = QMessageBox.question(
+            self,
+            "Confirm Delete",
+            "Are you sure you want to delete this expense record?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            ExpenseModel.delete(exp_id)
+            self.refresh_expenses()
+
     def _add_expense(self):
         amt_str = self.txt_amount.text().strip()
         desc = self.txt_desc.text().strip()
@@ -154,7 +204,11 @@ class QtExpensesView(QWidget):
             if amt <= 0:
                 raise ValueError
         except ValueError:
-            QMessageBox.warning(self, "Invalid Amount", "Please enter a valid positive numeric expense amount.")
+            self.txt_amount.setProperty("error", True)
+            self.txt_amount.style().polish(self.txt_amount)
+            self.lbl_form_error.setText("Please enter a valid positive numeric expense amount.")
+            self.lbl_form_error.setVisible(True)
+            self.txt_amount.setFocus()
             return
 
         user = AuthController.get_current_user()
@@ -163,5 +217,5 @@ class QtExpensesView(QWidget):
         ExpenseModel.create(cat, amt, desc, user_id=user_id)
         self.txt_amount.clear()
         self.txt_desc.clear()
+        self._clear_amount_error()
         self.refresh_expenses()
-        QMessageBox.information(self, "Expense Added", "Operating expense recorded successfully.")
