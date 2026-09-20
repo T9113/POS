@@ -19,6 +19,7 @@ from pos_app.utils.receipt_printer import ReceiptPrinter
 from pos_app.utils.shortcut_helper import create_desktop_shortcut
 from pos_app.utils.security import verify_password
 from pos_app.views.dialogs.qt_category_dialog import QtCategoryManagerDialog
+from pos_app.utils.license_manager import LicenseManager
 
 
 class QtSettingsView(QWidget):
@@ -169,6 +170,46 @@ class QtSettingsView(QWidget):
 
         tools_row.addStretch()
         c_layout.addLayout(tools_row)
+
+        # Software License & Machine Binding Section
+        line_lic = QFrame(container)
+        line_lic.setFrameShape(QFrame.Shape.HLine)
+        line_lic.setStyleSheet(f"background-color: {COLORS['border']};")
+        c_layout.addWidget(line_lic)
+
+        lbl_lic_t = QLabel("🔒 Software License & Machine Binding", container)
+        lbl_lic_t.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {COLORS['text_primary']};")
+        c_layout.addWidget(lbl_lic_t)
+
+        lic_info = LicenseManager.get_license_info()
+        lic_card = QFrame(container)
+        lic_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_hover']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 8px;
+                padding: 10px;
+            }}
+        """)
+        lic_layout = QVBoxLayout(lic_card)
+        lic_layout.setSpacing(6)
+
+        st_col = COLORS['success'] if lic_info['is_activated'] else COLORS['danger']
+        st_txt = "Active / Valid License" if lic_info['is_activated'] else "Unregistered / Trial"
+        lbl_st = QLabel(f"Status: <b style='color:{st_col};'>{st_txt}</b>", lic_card)
+        lbl_st.setStyleSheet("font-size: 13px;")
+        lic_layout.addWidget(lbl_st)
+
+        lbl_mach = QLabel(f"Machine ID: <b>{lic_info['machine_id']}</b>", lic_card)
+        lbl_mach.setStyleSheet("font-size: 13px; font-family: Consolas, monospace;")
+        lic_layout.addWidget(lbl_mach)
+
+        lbl_cli = QLabel(f"Licensed To: <b>{lic_info['client_name']}</b> ({lic_info['license_type']})", lic_card)
+        lbl_cli.setStyleSheet(f"font-size: 13px; color: {COLORS['text_secondary']};")
+        lic_layout.addWidget(lbl_cli)
+
+        c_layout.addWidget(lic_card)
+
         c_layout.addStretch()
 
         scroll.setWidget(container)
