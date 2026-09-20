@@ -79,7 +79,7 @@ def main():
     lic_key = generate_license(hwid, client, expiry)
 
     print("\n" + "-" * 65)
-    print(" [✓] LICENSE GENERATED SUCCESSFULLY!")
+    print(" [OK] LICENSE GENERATED SUCCESSFULLY!")
     print("-" * 65)
     print(f" Client:     {client}")
     print(f" Machine ID: {hwid}")
