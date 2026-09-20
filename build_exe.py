@@ -46,6 +46,8 @@ def build():
         "--hidden-import=PySide6.QtCore",
         "--hidden-import=PySide6.QtWidgets",
         "--hidden-import=PySide6.QtGui",
+        "--hidden-import=cryptography",
+        "--hidden-import=cryptography.hazmat.primitives.asymmetric.ed25519",
         "--hidden-import=openpyxl",
         "--hidden-import=reportlab",
         "--hidden-import=win32print",
