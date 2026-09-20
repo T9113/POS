@@ -1,7 +1,6 @@
 import os
 import sys
 import subprocess
-import customtkinter
 
 def build():
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -14,8 +13,6 @@ def build():
         except Exception:
             pass
 
-    # Locate customtkinter package directory for bundling its json themes and assets
-    ctk_dir = customtkinter.__path__[0]
     assets_dir = os.path.join(base_dir, "pos_app", "assets")
     icon_path = os.path.join(base_dir, "app_icon.ico")
 
@@ -27,12 +24,7 @@ def build():
     print("       Building OnesDev POS Standalone Executable ")
     print("==================================================")
     print(f"Base Directory: {base_dir}")
-    print(f"CustomTkinter Dir: {ctk_dir}")
     print(f"Icon Path: {icon_path}")
-
-    # Separator for PyInstaller --add-data on Windows is ';'
-    add_data_ctk = f"{ctk_dir};customtkinter"
-    add_data_assets = f"{assets_dir};assets"
 
     pyinstaller_cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -41,12 +33,19 @@ def build():
         "--onefile",
         "--windowed",
         "--name=OnesDevPOS",
-        f"--icon={icon_path}",
-        f"--add-data={add_data_ctk}",
-        f"--add-data={add_data_assets}",
-        "--hidden-import=customtkinter",
-        "--hidden-import=PIL",
-        "--hidden-import=PIL._tkinter_finder",
+    ]
+
+    if os.path.exists(icon_path):
+        pyinstaller_cmd.append(f"--icon={icon_path}")
+
+    if os.path.exists(assets_dir):
+        pyinstaller_cmd.append(f"--add-data={assets_dir};assets")
+
+    pyinstaller_cmd.extend([
+        "--hidden-import=PySide6",
+        "--hidden-import=PySide6.QtCore",
+        "--hidden-import=PySide6.QtWidgets",
+        "--hidden-import=PySide6.QtGui",
         "--hidden-import=openpyxl",
         "--hidden-import=reportlab",
         "--hidden-import=win32print",
@@ -54,7 +53,7 @@ def build():
         "--hidden-import=win32com.client",
         "--hidden-import=sqlite3",
         os.path.join(base_dir, "pos_app", "main.py")
-    ]
+    ])
 
     print("\nRunning PyInstaller build command:")
     print(" ".join(pyinstaller_cmd))
@@ -79,7 +78,7 @@ def build():
         print("\n==================================================")
         print(" [SUCCESS] OnesDevPOS.exe built successfully!")
         print(f" Executable Path: {exe_path}")
-        print(f" File Size: {size_mb:.2f} MB (Under 50MB limit!)")
+        print(f" File Size: {size_mb:.2f} MB (Hardware-accelerated Qt6)")
         print("==================================================")
         return True
     else:
