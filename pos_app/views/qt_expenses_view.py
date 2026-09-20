@@ -53,7 +53,7 @@ class QtExpensesView(QWidget):
         add_layout.setContentsMargins(18, 14, 18, 14)
         add_layout.setSpacing(10)
 
-        lbl_form_t = QLabel("➕ Record New Store Expense", add_card)
+        lbl_form_t = QLabel("+ Record New Store Expense", add_card)
         lbl_form_t.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {COLORS['text_primary']};")
         add_layout.addWidget(lbl_form_t)
 

@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont, QGuiApplication
 
-from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, apply_windows_native_corners
 from pos_app.utils.license_manager import LicenseManager
 
 
@@ -27,6 +27,7 @@ class QtRegistrationWindow(QMainWindow):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(540, 640)
+        apply_windows_native_corners(self)
 
         self._build_ui()
 
@@ -78,8 +79,9 @@ class QtRegistrationWindow(QMainWindow):
 
         # Machine ID Box Card
         hwid_box = QFrame(self.card)
+        hwid_box.setObjectName("HwidBox")
         hwid_box.setStyleSheet(f"""
-            QFrame {{
+            #HwidBox {{
                 background-color: {COLORS['bg_hover']};
                 border: 1.5px dashed {COLORS['border_focus']};
                 border-radius: 10px;

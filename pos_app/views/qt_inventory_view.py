@@ -208,8 +208,9 @@ class QtInventoryView(QWidget):
             it_min.setFlags(it_min.flags() ^ Qt.ItemFlag.ItemIsEditable)
             self.tbl_low.setItem(row, 4, it_min)
 
-            btn_restock = AnimatedButton("➕ +25 Stock", variant="primary")
+            btn_restock = AnimatedButton("+25 Stock", variant="primary")
             btn_restock.setFixedHeight(26)
+            btn_restock.setToolTip("Quickly add 25 units to stock")
             btn_restock.clicked.connect(lambda _, pid=p["id"]: self._quick_restock(pid, 25))
             self.tbl_low.setCellWidget(row, 5, btn_restock)
 

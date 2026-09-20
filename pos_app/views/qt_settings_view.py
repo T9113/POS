@@ -446,8 +446,9 @@ class QtSettingsView(QWidget):
         lbl_sec.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {COLORS['text_primary']};")
         top_row.addWidget(lbl_sec)
 
-        btn_add = AnimatedButton("➕ Add User", self.tab_users, variant="primary")
+        btn_add = AnimatedButton("+ Add User", self.tab_users, variant="primary")
         btn_add.setFixedHeight(36)
+        btn_add.setToolTip("Create new user login")
         btn_add.clicked.connect(self._add_user_dialog)
         top_row.addWidget(btn_add)
         layout.addLayout(top_row)

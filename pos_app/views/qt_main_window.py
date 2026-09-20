@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor, QFont, QCursor, QIcon
 
-from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, apply_windows_native_corners
 from pos_app.controllers.auth_controller import AuthController
 from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
@@ -45,6 +45,7 @@ class QtMainWindow(QMainWindow):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.resize(1340, 840)
         self.setMinimumSize(1100, 700)
+        apply_windows_native_corners(self)
 
         # 2. Build UI Shell
         self._build_ui()
@@ -228,7 +229,6 @@ class QtMainWindow(QMainWindow):
         self.sidebar_frame.setStyleSheet(f"""
             #Sidebar {{
                 background-color: {COLORS['bg_sidebar']};
-                border-bottom-left-radius: 14px;
             }}
         """)
 
@@ -358,9 +358,10 @@ class QtMainWindow(QMainWindow):
 
     def _create_status_bar(self) -> QWidget:
         bar = QFrame(self.window_frame)
+        bar.setObjectName("StatusBar")
         bar.setFixedHeight(32)
         bar.setStyleSheet(f"""
-            QFrame {{
+            #StatusBar {{
                 background-color: {COLORS['bg_surface']};
                 border-bottom-left-radius: 14px;
                 border-bottom-right-radius: 14px;

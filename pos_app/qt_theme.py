@@ -58,7 +58,7 @@ COLORS = {
 # Global QSS Stylesheet
 GLOBAL_QSS = f"""
 * {{
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    font-family: 'Segoe UI', 'Segoe UI Emoji', 'Segoe UI Symbol', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     outline: none;
 }}
 
@@ -66,23 +66,27 @@ QWidget {{
     color: {COLORS["text_primary"]};
 }}
 
+QDialog {{
+    background-color: {COLORS["bg_surface"]};
+    border-radius: 14px;
+}}
+
 /* Main background */
 #MainWindowContainer {{
     background-color: {COLORS["bg_main"]};
-    border-radius: 12px;
+    border-radius: 14px;
 }}
 
 /* Title bar */
 #TitleBar {{
     background-color: {COLORS["bg_sidebar"]};
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
 }}
 
 /* Sidebar */
 #Sidebar {{
     background-color: {COLORS["bg_sidebar"]};
-    border-bottom-left-radius: 12px;
 }}
 
 /* Cards & Panels */
@@ -229,14 +233,39 @@ QTabBar::tab:hover:!selected {{
 """
 
 
+def apply_windows_native_corners(widget):
+    """
+    Applies Windows 11 Desktop Window Manager (DWM) native rounded corners (16px)
+    to any native window handle, preventing sharp/square corners.
+    """
+    import sys
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            DWMWA_WINDOW_CORNER_PREFERENCE = 33
+            DWMWCP_ROUND = 2
+            hwnd = int(widget.winId())
+            val = ctypes.c_int(DWMWCP_ROUND)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                ctypes.byref(val),
+                ctypes.sizeof(val)
+            )
+        except Exception:
+            pass
+
+
 class AnimatedButton(QPushButton):
     """
     Button with iPhone-like scale-press micro-animation.
     Shrinks slightly on click with OutQuad easing and snaps back on release.
+    Automatically formats icon buttons and short symbols with 0px padding so icons are never clipped.
     """
-    def __init__(self, text="", parent=None, variant="primary"):
+    def __init__(self, text="", parent=None, variant="primary", is_icon_only=False):
         super().__init__(text, parent)
         self.variant = variant
+        self.is_icon_only = is_icon_only or len(text.strip()) <= 3
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
         # Setup geometry animation
@@ -247,15 +276,20 @@ class AnimatedButton(QPushButton):
         self._apply_variant_style()
 
     def _apply_variant_style(self):
+        padding = "padding: 0px; text-align: center;" if self.is_icon_only else "padding: 8px 16px;"
+        font_size = "14px" if self.is_icon_only else "13px"
+        font_family = "'Segoe UI', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif"
+
         styles = {
             "primary": f"""
                 QPushButton {{
                     background-color: {COLORS["primary"]};
                     color: #FFFFFF;
                     font-weight: bold;
-                    font-size: 13px;
+                    font-size: {font_size};
+                    font-family: {font_family};
                     border-radius: 8px;
-                    padding: 8px 16px;
+                    {padding}
                     border: none;
                 }}
                 QPushButton:hover {{
@@ -267,9 +301,10 @@ class AnimatedButton(QPushButton):
                     background-color: {COLORS["bg_hover"]};
                     color: {COLORS["text_primary"]};
                     font-weight: 600;
-                    font-size: 13px;
+                    font-size: {font_size};
+                    font-family: {font_family};
                     border-radius: 8px;
-                    padding: 8px 16px;
+                    {padding}
                     border: 1px solid {COLORS["border"]};
                 }}
                 QPushButton:hover {{
@@ -281,9 +316,10 @@ class AnimatedButton(QPushButton):
                     background-color: {COLORS["success"]};
                     color: #FFFFFF;
                     font-weight: bold;
-                    font-size: 13px;
+                    font-size: {font_size};
+                    font-family: {font_family};
                     border-radius: 8px;
-                    padding: 8px 16px;
+                    {padding}
                     border: none;
                 }}
                 QPushButton:hover {{
@@ -295,9 +331,10 @@ class AnimatedButton(QPushButton):
                     background-color: {COLORS["danger"]};
                     color: #FFFFFF;
                     font-weight: bold;
-                    font-size: 13px;
+                    font-size: {font_size};
+                    font-family: {font_family};
                     border-radius: 8px;
-                    padding: 8px 16px;
+                    {padding}
                     border: none;
                 }}
                 QPushButton:hover {{
@@ -309,9 +346,10 @@ class AnimatedButton(QPushButton):
                     background-color: {COLORS["danger_subtle"]};
                     color: {COLORS["danger"]};
                     font-weight: bold;
-                    font-size: 13px;
+                    font-size: {font_size};
+                    font-family: {font_family};
                     border-radius: 8px;
-                    padding: 8px 16px;
+                    {padding}
                     border: 1px solid #FECACA;
                 }}
                 QPushButton:hover {{
@@ -323,9 +361,10 @@ class AnimatedButton(QPushButton):
                     background-color: transparent;
                     color: {COLORS["primary"]};
                     font-weight: 600;
-                    font-size: 13px;
+                    font-size: {font_size};
+                    font-family: {font_family};
                     border-radius: 8px;
-                    padding: 6px 14px;
+                    {padding}
                     border: 1.5px solid {COLORS["primary"]};
                 }}
                 QPushButton:hover {{
@@ -352,11 +391,11 @@ class AnimatedButton(QPushButton):
 
 class DropShadowCard(QFrame):
     """Clean surface card with rounded corners and ambient soft drop shadow."""
-    def __init__(self, parent=None, corner_radius=10, blur_radius=18, offset_y=4, opacity=25):
+    def __init__(self, parent=None, corner_radius=12, blur_radius=18, offset_y=4, opacity=25):
         super().__init__(parent)
-        self.setProperty("class", "Card")
+        self.setObjectName("DropShadowCard")
         self.setStyleSheet(f"""
-            QFrame {{
+            QFrame#DropShadowCard {{
                 background-color: {COLORS["bg_surface"]};
                 border: 1px solid {COLORS["border"]};
                 border-radius: {corner_radius}px;
@@ -393,8 +432,9 @@ class SmoothModalOverlay(QWidget):
 
         # Modal Card Container
         self.card = QFrame(self)
+        self.card.setObjectName("ModalCard")
         self.card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#ModalCard {{
                 background-color: #FFFFFF;
                 border-radius: 16px;
                 border: 1px solid {COLORS["border"]};

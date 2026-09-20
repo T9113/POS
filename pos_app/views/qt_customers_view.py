@@ -55,8 +55,9 @@ class QtCustomersView(QWidget):
         btn_excel.clicked.connect(self._export_excel)
         top_layout.addWidget(btn_excel)
 
-        btn_add = AnimatedButton("➕ Add Customer", top_card, variant="primary")
+        btn_add = AnimatedButton("+ Add Customer", top_card, variant="primary")
         btn_add.setFixedHeight(36)
+        btn_add.setToolTip("Register new customer account")
         btn_add.clicked.connect(self._open_add_customer)
         top_layout.addWidget(btn_add)
 

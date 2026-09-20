@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont
 
-from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, apply_windows_native_corners
 from pos_app.controllers.auth_controller import AuthController
 from pos_app.models.settings_model import SettingsModel
 
@@ -152,6 +152,7 @@ class QtLoginWindow(QMainWindow):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(480, 580)
+        apply_windows_native_corners(self)
 
         self.login_view = QtLoginView(self)
         self.login_view.login_successful.connect(self._handle_success)

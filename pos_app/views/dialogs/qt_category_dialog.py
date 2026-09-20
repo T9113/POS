@@ -49,8 +49,9 @@ class QtCategoryManagerDialog(SmoothModalOverlay):
         self.txt_new_cat.returnPressed.connect(self._add_category)
         add_row.addWidget(self.txt_new_cat)
 
-        btn_add = AnimatedButton("➕ Add", content, variant="primary")
+        btn_add = AnimatedButton("+ Add", content, variant="primary")
         btn_add.setFixedHeight(36)
+        btn_add.setToolTip("Create new category")
         btn_add.clicked.connect(self._add_category)
         add_row.addWidget(btn_add)
         layout.addLayout(add_row)
@@ -82,8 +83,9 @@ class QtCategoryManagerDialog(SmoothModalOverlay):
             item_cnt.setFlags(item_cnt.flags() ^ Qt.ItemFlag.ItemIsEditable)
             self.table.setItem(row, 1, item_cnt)
 
-            btn_del = AnimatedButton("🗑️", variant="danger_subtle")
-            btn_del.setFixedSize(36, 28)
+            btn_del = AnimatedButton("🗑️", variant="danger_subtle", is_icon_only=True)
+            btn_del.setFixedSize(32, 28)
+            btn_del.setToolTip("Delete Category")
             btn_del.clicked.connect(lambda _, cid=c["id"], cname=c["name"], pcount=cnt: self._delete_category(cid, cname, pcount))
             self.table.setCellWidget(row, 2, btn_del)
 

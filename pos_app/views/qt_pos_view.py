@@ -126,8 +126,9 @@ class QtPOSView(QWidget):
         self.cmb_customer.addItem("👤 Walk-in Customer (No Khata)", None)
         cust_row.addWidget(self.cmb_customer, stretch=1)
 
-        btn_new_cust = AnimatedButton("➕ New", cart_card, variant="secondary")
+        btn_new_cust = AnimatedButton("+ New", cart_card, variant="secondary")
         btn_new_cust.setFixedHeight(34)
+        btn_new_cust.setToolTip("Add new customer")
         btn_new_cust.clicked.connect(self._open_new_customer_dialog)
         cust_row.addWidget(btn_new_cust)
 
@@ -381,18 +382,20 @@ class QtPOSView(QWidget):
             qty_layout.setContentsMargins(2, 2, 2, 2)
             qty_layout.setSpacing(4)
 
-            btn_minus = AnimatedButton("-", variant="secondary")
-            btn_minus.setFixedSize(22, 22)
+            btn_minus = AnimatedButton("-", variant="secondary", is_icon_only=True)
+            btn_minus.setFixedSize(24, 24)
+            btn_minus.setToolTip("Decrease Quantity")
             btn_minus.clicked.connect(lambda _, pid=itm["product_id"]: self._adjust_qty(pid, -1))
             qty_layout.addWidget(btn_minus)
 
             lbl_q = QLabel(str(itm["quantity"]), qty_frame)
             lbl_q.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl_q.setStyleSheet("font-weight: bold; font-size: 12px; min-width: 20px;")
+            lbl_q.setStyleSheet("font-weight: bold; font-size: 13px; min-width: 22px;")
             qty_layout.addWidget(lbl_q)
 
-            btn_plus = AnimatedButton("+", variant="secondary")
-            btn_plus.setFixedSize(22, 22)
+            btn_plus = AnimatedButton("+", variant="secondary", is_icon_only=True)
+            btn_plus.setFixedSize(24, 24)
+            btn_plus.setToolTip("Increase Quantity")
             btn_plus.clicked.connect(lambda _, pid=itm["product_id"]: self._adjust_qty(pid, 1))
             qty_layout.addWidget(btn_plus)
 
@@ -406,8 +409,9 @@ class QtPOSView(QWidget):
             self.cart_table.setItem(row, 3, item_tot)
 
             # 4: Delete Button
-            btn_del = AnimatedButton("✕", variant="danger_subtle")
-            btn_del.setFixedSize(24, 24)
+            btn_del = AnimatedButton("✕", variant="danger_subtle", is_icon_only=True)
+            btn_del.setFixedSize(26, 26)
+            btn_del.setToolTip("Remove from Cart")
             btn_del.clicked.connect(lambda _, pid=itm["product_id"]: self._remove_from_cart(pid))
             self.cart_table.setCellWidget(row, 4, btn_del)
 

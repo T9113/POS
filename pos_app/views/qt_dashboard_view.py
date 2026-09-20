@@ -63,8 +63,9 @@ class QtDashboardView(QWidget):
         greet_layout.addWidget(btn_new_sale)
 
         if AuthController.is_admin():
-            btn_add_prod = AnimatedButton("➕ Add Product", greeting_card, variant="secondary")
+            btn_add_prod = AnimatedButton("+ Add Product", greeting_card, variant="secondary")
             btn_add_prod.setFixedHeight(42)
+            btn_add_prod.setToolTip("Go to Products Catalog")
             btn_add_prod.clicked.connect(lambda: self.navigate_to.emit("products"))
             greet_layout.addWidget(btn_add_prod)
 
