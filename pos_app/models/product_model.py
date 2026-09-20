@@ -102,6 +102,12 @@ class ProductModel:
             return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
+    def get_all(limit: int = 1000):
+        return ProductModel.search_products(limit=limit)
+
+    list_all = get_all
+
+    @staticmethod
     def count_products(query: str = "", category_id: int = None, active_only: bool = True):
         conditions = []
         params = []

@@ -25,6 +25,8 @@ class SupplierModel:
                 cursor.execute("SELECT * FROM suppliers ORDER BY name ASC LIMIT ? OFFSET ?", (limit, offset))
             return [dict(row) for row in cursor.fetchall()]
 
+    get_all = list_all
+
     @staticmethod
     def create(name: str, phone: str = "", email: str = "", address: str = "", notes: str = ""):
         with get_db() as conn:

@@ -9,8 +9,12 @@ class ExpenseModel:
     ]
 
     @staticmethod
-    def create(category: str, amount: float, description: str, date: str, user_id: int):
+    def create(category: str, amount: float, description: str, date: str = None, user_id: int = None):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not date:
+            date = datetime.now().strftime("%Y-%m-%d")
+        if not user_id:
+            user_id = 1
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -49,6 +53,8 @@ class ExpenseModel:
             cursor.execute(sql, params)
             return [dict(row) for row in cursor.fetchall()]
 
+    list_expenses = list_all
+
     @staticmethod
     def get_total_expenses(date_from: str = None, date_to: str = None):
         conditions = []
@@ -67,6 +73,8 @@ class ExpenseModel:
             cursor = conn.cursor()
             cursor.execute(sql, params)
             return cursor.fetchone()[0]
+
+    get_total_for_range = get_total_expenses
 
     @staticmethod
     def delete(expense_id: int):

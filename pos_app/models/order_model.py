@@ -136,9 +136,15 @@ class OrderModel:
 
     @staticmethod
     def list_orders(query: str = "", date_from: str = None, date_to: str = None,
-                    payment_method: str = None, limit: int = 50, offset: int = 0):
+                    payment_method: str = None, limit: int = 50, offset: int = 0,
+                    search: str = None, customer_id: int = None):
+        if search is not None:
+            query = search
         conditions = []
         params = []
+        if customer_id:
+            conditions.append("o.customer_id = ?")
+            params.append(customer_id)
         if query and query.strip():
             q = f"%{query.strip()}%"
             conditions.append("(o.order_number LIKE ? OR c.name LIKE ? OR c.phone LIKE ?)")
@@ -169,6 +175,12 @@ class OrderModel:
             cursor = conn.cursor()
             cursor.execute(sql, params)
             return [dict(row) for row in cursor.fetchall()]
+
+    @staticmethod
+    def get_orders_by_date_range(start_date: str, end_date: str, limit: int = 1000):
+        return OrderModel.list_orders(date_from=start_date, date_to=end_date, limit=limit)
+
+    get_recent_orders = list_orders
 
     @staticmethod
     def count_orders(query: str = "", date_from: str = None, date_to: str = None, payment_method: str = None):

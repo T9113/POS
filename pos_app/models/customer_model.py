@@ -10,7 +10,9 @@ class CustomerModel:
             return dict(row) if row else None
 
     @staticmethod
-    def list_all(search_query: str = "", limit: int = 100, offset: int = 0):
+    def list_all(search_query: str = "", limit: int = 100, offset: int = 0, search: str = None):
+        if search is not None:
+            search_query = search
         with get_db() as conn:
             cursor = conn.cursor()
             if search_query and search_query.strip():
@@ -24,6 +26,8 @@ class CustomerModel:
             else:
                 cursor.execute("SELECT * FROM customers ORDER BY name ASC LIMIT ? OFFSET ?", (limit, offset))
             return [dict(row) for row in cursor.fetchall()]
+
+    get_all = list_all
 
     @staticmethod
     def count(search_query: str = ""):

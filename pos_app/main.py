@@ -1,68 +1,70 @@
+"""
+Entry point for OnesDev POS Desktop Application.
+Hardware-accelerated PySide6 engine with iPhone-smooth animations,
+frameless zero-glitch startup, and 100% offline portable SQLite database.
+"""
 import os
 import sys
+import threading
 
 # Ensure root directory is in sys.path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-import customtkinter as ctk
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+
 from pos_app.config import APP_NAME, APP_VERSION
 from pos_app.database import init_database
-from pos_app.models.settings_model import SettingsModel
-from pos_app.controllers.auth_controller import AuthController
-from pos_app.views.theme import apply_theme
-from pos_app.views.login_view import LoginView
-from pos_app.views.main_window import MainWindow
+from pos_app.qt_theme import GLOBAL_QSS
+from pos_app.views.qt_login_view import QtLoginWindow
+from pos_app.views.qt_main_window import QtMainWindow
 
-class SwiftPOSApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
 
-        # Auto-create database and tables on first run
+class OnesDevPOSApplication:
+    """Application controller coordinating authentication and main window transitions."""
+
+    def __init__(self, app: QApplication):
+        self.app = app
+        self.login_window = None
+        self.main_window = None
+
+        # 1. Initialize local SQLite tables and sample data if needed
         init_database()
 
-        # One-time desktop shortcut creation on first install / launch in background thread
+        # 2. Setup one-time desktop shortcut in background thread
         try:
-            import threading
             from pos_app.utils.shortcut_helper import setup_first_run_shortcut
             threading.Thread(target=setup_first_run_shortcut, daemon=True).start()
         except Exception:
             pass
 
-        # Load appearance theme from settings
-        theme = SettingsModel.get("theme_mode", "dark")
-        apply_theme(theme)
+        # 3. Apply global hardware-accelerated stylesheet
+        self.app.setStyleSheet(GLOBAL_QSS)
 
-        self.title(f"{APP_NAME} v{APP_VERSION} - Offline Desktop POS")
-        self.geometry("1280x780")
-        self.minsize(1024, 640)
+        # 4. Show Login Window first
+        self.show_login()
 
-        # Center on screen
-        self.update_idletasks()
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        x = max(0, (sw - 1280) // 2)
-        y = max(0, (sh - 780) // 2)
-        self.geometry(f"+{x}+{y}")
+    def show_login(self):
+        if self.main_window:
+            self.main_window.close()
+            self.main_window = None
 
-        self.current_view = None
-        self._show_login()
+        self.login_window = QtLoginWindow(on_login_success=self.show_main_app)
+        self.login_window.show()
 
-    def _show_login(self):
-        if self.current_view:
-            self.current_view.destroy()
-        self.current_view = LoginView(self, on_login_success=self._on_login_success)
-        self.current_view.pack(fill="both", expand=True)
+    def show_main_app(self):
+        if self.login_window:
+            self.login_window.close()
+            self.login_window = None
 
-    def _on_login_success(self):
-        if self.current_view:
-            self.current_view.destroy()
-        self.current_view = MainWindow(self, on_logout=self._show_login)
-        self.current_view.pack(fill="both", expand=True)
+        self.main_window = QtMainWindow(on_logout=self.show_login)
+        self.main_window.show()
+
 
 def main():
-    # Set Windows App ID for taskbar grouping
+    # Set Windows App ID for proper taskbar grouping
     if sys.platform == "win32":
         try:
             import ctypes
@@ -70,8 +72,18 @@ def main():
         except Exception:
             pass
 
-    app = SwiftPOSApp()
-    app.mainloop()
+    # Enable High DPI scaling
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
+
+    app = QApplication(sys.argv)
+    app.setApplicationName("OnesDev POS")
+    app.setApplicationVersion(APP_VERSION)
+
+    pos_app = OnesDevPOSApplication(app)
+    sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

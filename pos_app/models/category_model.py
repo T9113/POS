@@ -11,6 +11,8 @@ class CategoryModel:
                 cursor.execute("SELECT * FROM categories ORDER BY sort_order ASC, name ASC")
             return [dict(row) for row in cursor.fetchall()]
 
+    get_all = list_all
+
     @staticmethod
     def get_by_id(category_id: int):
         with get_db() as conn:
