@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from pos_app.qt_theme import COLORS, AnimatedButton, SmoothModalOverlay
+from pos_app.utils.icon_helper import get_icon
 from pos_app.models.category_model import CategoryModel
 
 
@@ -30,13 +31,21 @@ class QtCategoryManagerDialog(SmoothModalOverlay):
 
         # Header Title
         title_row = QHBoxLayout()
-        lbl_title = QLabel("🏷️ Manage Categories", content)
+        ico_title = QLabel(content)
+        ico_title.setPixmap(get_icon("tag", color=COLORS["primary"], size=20).pixmap(20, 20))
+        ico_title.setFixedSize(22, 22)
+        title_row.addWidget(ico_title)
+
+        lbl_title = QLabel("Manage Categories", content)
         lbl_title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {COLORS['text_primary']};")
         title_row.addWidget(lbl_title)
 
-        btn_close = QPushButton("✕", content)
+        title_row.addStretch()
+
+        btn_close = QPushButton("", content)
+        btn_close.setIcon(get_icon("close", color=COLORS["text_muted"], size=14))
         btn_close.setFixedSize(28, 28)
-        btn_close.setStyleSheet("background: transparent; color: #94A3B8; font-size: 16px; font-weight: bold; border: none;")
+        btn_close.setStyleSheet("background: transparent; border: none; border-radius: 6px;")
         btn_close.clicked.connect(self.hide_animated)
         title_row.addWidget(btn_close)
         layout.addLayout(title_row)
@@ -46,15 +55,22 @@ class QtCategoryManagerDialog(SmoothModalOverlay):
         self.txt_new_cat = QLineEdit(content)
         self.txt_new_cat.setPlaceholderText("Enter new category name...")
         self.txt_new_cat.setFixedHeight(36)
+        self.txt_new_cat.textChanged.connect(self._clear_cat_error)
         self.txt_new_cat.returnPressed.connect(self._add_category)
         add_row.addWidget(self.txt_new_cat)
 
-        btn_add = AnimatedButton("+ Add", content, variant="primary")
+        btn_add = AnimatedButton(" Add", content, variant="primary", icon_name="plus", icon_size=14)
         btn_add.setFixedHeight(36)
         btn_add.setToolTip("Create new category")
         btn_add.clicked.connect(self._add_category)
         add_row.addWidget(btn_add)
         layout.addLayout(add_row)
+
+        # Inline error for category input
+        self.lbl_cat_err = QLabel("", content)
+        self.lbl_cat_err.setStyleSheet(f"color: {COLORS['border_error']}; font-size: 11px; font-weight: 600;")
+        self.lbl_cat_err.setVisible(False)
+        layout.addWidget(self.lbl_cat_err)
 
         # Categories Table
         self.table = QTableWidget(content)
@@ -68,6 +84,10 @@ class QtCategoryManagerDialog(SmoothModalOverlay):
         layout.addWidget(self.table)
 
         self.set_content_widget(content)
+
+    def _clear_cat_error(self):
+        self.txt_new_cat.setStyleSheet("")
+        self.lbl_cat_err.setVisible(False)
 
     def _load_categories(self):
         cats = CategoryModel.get_all_with_counts()
@@ -83,8 +103,8 @@ class QtCategoryManagerDialog(SmoothModalOverlay):
             item_cnt.setFlags(item_cnt.flags() ^ Qt.ItemFlag.ItemIsEditable)
             self.table.setItem(row, 1, item_cnt)
 
-            btn_del = AnimatedButton("🗑️", variant="danger_subtle", is_icon_only=True)
-            btn_del.setFixedSize(32, 28)
+            btn_del = AnimatedButton("", variant="danger_subtle", icon_name="trash", icon_color=COLORS["danger"], icon_size=13, is_icon_only=True)
+            btn_del.setFixedSize(30, 28)
             btn_del.setToolTip("Delete Category")
             btn_del.clicked.connect(lambda _, cid=c["id"], cname=c["name"], pcount=cnt: self._delete_category(cid, cname, pcount))
             self.table.setCellWidget(row, 2, btn_del)
@@ -92,6 +112,10 @@ class QtCategoryManagerDialog(SmoothModalOverlay):
     def _add_category(self):
         name = self.txt_new_cat.text().strip()
         if not name:
+            self.txt_new_cat.setStyleSheet(f"border: 1.5px solid {COLORS['border_error']}; background-color: {COLORS['bg_error']};")
+            self.lbl_cat_err.setText("Category name cannot be empty.")
+            self.lbl_cat_err.setVisible(True)
+            self.txt_new_cat.setFocus()
             return
         CategoryModel.get_or_create(name)
         self.txt_new_cat.clear()

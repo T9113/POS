@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QFont
 
 from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, apply_windows_native_corners
+from pos_app.utils.icon_helper import get_icon
 from pos_app.controllers.auth_controller import AuthController
 from pos_app.models.settings_model import SettingsModel
 
@@ -39,20 +40,33 @@ class QtLoginView(QWidget):
         # Top close button
         top_row = QHBoxLayout()
         top_row.addStretch()
-        btn_close = QPushButton("✕", self.card)
+        btn_close = QPushButton("", self.card)
+        btn_close.setIcon(get_icon("close", color=COLORS["text_muted"], size=14))
         btn_close.setFixedSize(26, 26)
         btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_close.setStyleSheet("background: transparent; color: #94A3B8; font-size: 14px; font-weight: bold; border: none; border-radius: 13px;")
+        btn_close.setStyleSheet("background: transparent; border: none; border-radius: 13px;")
         btn_close.clicked.connect(self.close_requested.emit)
         top_row.addWidget(btn_close)
         card_layout.addLayout(top_row)
 
-        # Logo / Brand
-        lbl_icon = QLabel("🛒", self.card)
-        lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font_icon = QFont("Segoe UI Emoji", 34)
-        lbl_icon.setFont(font_icon)
-        card_layout.addWidget(lbl_icon)
+        # Logo / Brand (Crisp SVG in circular container)
+        logo_container = QWidget(self.card)
+        logo_l = QHBoxLayout(logo_container)
+        logo_l.setContentsMargins(0, 0, 0, 0)
+        logo_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        logo_badge = QFrame(logo_container)
+        logo_badge.setFixedSize(54, 54)
+        logo_badge.setStyleSheet(f"background-color: {COLORS['primary_subtle']}; border-radius: 27px; border: 1px solid #C7D2FE;")
+        badge_l = QVBoxLayout(logo_badge)
+        badge_l.setContentsMargins(0, 0, 0, 0)
+        badge_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        ico_lbl = QLabel(logo_badge)
+        ico_lbl.setPixmap(get_icon("cart", color=COLORS["primary"], size=28).pixmap(28, 28))
+        badge_l.addWidget(ico_lbl)
+        logo_l.addWidget(logo_badge)
+        card_layout.addWidget(logo_container)
 
         lbl_title = QLabel("OnesDev POS", self.card)
         lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -76,6 +90,7 @@ class QtLoginView(QWidget):
         self.txt_username.setPlaceholderText("Enter username (e.g. admin)")
         self.txt_username.setText("admin")
         self.txt_username.setFixedHeight(40)
+        self.txt_username.textChanged.connect(self._clear_login_errors)
         card_layout.addWidget(self.txt_username)
 
         # Password
@@ -88,6 +103,7 @@ class QtLoginView(QWidget):
         self.txt_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.txt_password.setText("admin")
         self.txt_password.setFixedHeight(40)
+        self.txt_password.textChanged.connect(self._clear_login_errors)
         self.txt_password.returnPressed.connect(self._handle_login)
         card_layout.addWidget(self.txt_password)
 
@@ -98,7 +114,7 @@ class QtLoginView(QWidget):
         card_layout.addWidget(self.lbl_error)
 
         # Login button
-        self.btn_login = AnimatedButton("Sign In  ➔", self.card, variant="primary")
+        self.btn_login = AnimatedButton("Sign In", self.card, variant="primary", icon_name="check", icon_color="#FFFFFF", icon_size=16)
         self.btn_login.setFixedHeight(44)
         self.btn_login.clicked.connect(self._handle_login)
         card_layout.addWidget(self.btn_login)
@@ -107,12 +123,12 @@ class QtLoginView(QWidget):
         quick_layout = QHBoxLayout()
         quick_layout.setSpacing(8)
 
-        btn_fill_admin = AnimatedButton("👤 Admin Fill", self.card, variant="secondary")
+        btn_fill_admin = AnimatedButton(" Admin Demo", self.card, variant="secondary", icon_name="user", icon_size=13)
         btn_fill_admin.setFixedHeight(30)
         btn_fill_admin.clicked.connect(lambda: self._fill_creds("admin", "admin"))
         quick_layout.addWidget(btn_fill_admin)
 
-        btn_fill_cashier = AnimatedButton("💼 Cashier Fill", self.card, variant="secondary")
+        btn_fill_cashier = AnimatedButton(" Cashier Demo", self.card, variant="secondary", icon_name="user", icon_size=13)
         btn_fill_cashier.setFixedHeight(30)
         btn_fill_cashier.clicked.connect(lambda: self._fill_creds("cashier", "cashier"))
         quick_layout.addWidget(btn_fill_cashier)
@@ -122,16 +138,28 @@ class QtLoginView(QWidget):
 
         root_layout.addWidget(self.card)
 
+    def _clear_login_errors(self):
+        self.txt_username.setStyleSheet("")
+        self.txt_password.setStyleSheet("")
+        self.lbl_error.setText("")
+
     def _fill_creds(self, u, p):
         self.txt_username.setText(u)
         self.txt_password.setText(p)
-        self.lbl_error.setText("")
+        self._clear_login_errors()
 
     def _handle_login(self):
         u = self.txt_username.text().strip()
         p = self.txt_password.text().strip()
-        if not u or not p:
-            self.lbl_error.setText("Please enter both username and password.")
+        if not u:
+            self.txt_username.setStyleSheet(f"border: 1.5px solid {COLORS['border_error']}; background-color: {COLORS['bg_error']};")
+            self.lbl_error.setText("Username is required.")
+            self.txt_username.setFocus()
+            return
+        if not p:
+            self.txt_password.setStyleSheet(f"border: 1.5px solid {COLORS['border_error']}; background-color: {COLORS['bg_error']};")
+            self.lbl_error.setText("Password is required.")
+            self.txt_password.setFocus()
             return
 
         user = AuthController.login(u, p)

@@ -2,7 +2,7 @@
 Design system, theme tokens, QSS styling, and animated widgets for OnesDev POS.
 Hardware-accelerated Slate & Indigo commercial theme with iOS-inspired physics.
 """
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QRect, QPoint, Signal
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QRect, QPoint, Signal, QSize
 from PySide6.QtWidgets import (
     QWidget, QPushButton, QFrame, QLabel, QGraphicsDropShadowEffect,
     QVBoxLayout, QHBoxLayout, QGraphicsOpacityEffect
@@ -52,6 +52,9 @@ COLORS = {
     "danger": "#DC2626",
     "danger_hover": "#B91C1C",
     "danger_subtle": "#FEF2F2",
+    "border_error": "#EF4444",
+    "bg_error": "#FEF2F2",
+    "text_error": "#DC2626",
     "gold": "#D97706",
 }
 
@@ -111,6 +114,18 @@ QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox {{
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
     border: 1.5px solid {COLORS["primary"]};
     background-color: #FFFFFF;
+}}
+
+/* Form Validation Error State */
+.input-error, QLineEdit[error="true"], QSpinBox[error="true"], QDoubleSpinBox[error="true"], QComboBox[error="true"] {{
+    border: 1.5px solid {COLORS["border_error"]} !important;
+    background-color: {COLORS["bg_error"]} !important;
+}}
+
+.error-label {{
+    color: {COLORS["text_error"]};
+    font-size: 11px;
+    font-weight: 600;
 }}
 
 /* Combobox */
@@ -262,10 +277,10 @@ class AnimatedButton(QPushButton):
     Shrinks slightly on click with OutQuad easing and snaps back on release.
     Automatically formats icon buttons and short symbols with 0px padding so icons are never clipped.
     """
-    def __init__(self, text="", parent=None, variant="primary", is_icon_only=False):
+    def __init__(self, text="", parent=None, variant="primary", is_icon_only=False, icon_name=None, icon_color=None, icon_size=16):
         super().__init__(text, parent)
         self.variant = variant
-        self.is_icon_only = is_icon_only or len(text.strip()) <= 3
+        self.is_icon_only = is_icon_only or (len(text.strip()) == 0 and icon_name is not None) or (len(text.strip()) <= 3 and icon_name is None)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
         # Setup geometry animation
@@ -274,6 +289,13 @@ class AnimatedButton(QPushButton):
         self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
 
         self._apply_variant_style()
+
+        if icon_name:
+            from pos_app.utils.icon_helper import get_icon
+            default_color = "#FFFFFF" if variant in ("primary", "danger", "success") else (COLORS["danger"] if variant == "danger_subtle" else COLORS["text_secondary"])
+            c = icon_color or default_color
+            self.setIcon(get_icon(icon_name, color=c, size=icon_size))
+            self.setIconSize(QSize(icon_size, icon_size))
 
     def _apply_variant_style(self):
         padding = "padding: 0px; text-align: center;" if self.is_icon_only else "padding: 8px 16px;"

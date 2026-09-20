@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from pos_app.qt_theme import COLORS, AnimatedButton, SmoothModalOverlay
+from pos_app.utils.icon_helper import get_icon
 from pos_app.controllers.auth_controller import AuthController
 from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
@@ -40,13 +41,21 @@ class QtPaymentDialog(SmoothModalOverlay):
 
         # Header Title
         title_row = QHBoxLayout()
-        lbl_title = QLabel("💳 Complete Payment", content)
+        ico_title = QLabel(content)
+        ico_title.setPixmap(get_icon("credit_card", color=COLORS["primary"], size=20).pixmap(20, 20))
+        ico_title.setFixedSize(22, 22)
+        title_row.addWidget(ico_title)
+
+        lbl_title = QLabel("Complete Payment", content)
         lbl_title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {COLORS['text_primary']};")
         title_row.addWidget(lbl_title)
 
-        btn_close = QPushButton("✕", content)
+        title_row.addStretch()
+
+        btn_close = QPushButton("", content)
+        btn_close.setIcon(get_icon("close", color=COLORS["text_muted"], size=14))
         btn_close.setFixedSize(28, 28)
-        btn_close.setStyleSheet("background: transparent; color: #94A3B8; font-size: 16px; font-weight: bold; border: none;")
+        btn_close.setStyleSheet("background: transparent; border: none; border-radius: 6px;")
         btn_close.clicked.connect(self.hide_animated)
         title_row.addWidget(btn_close)
         layout.addLayout(title_row)
@@ -81,17 +90,17 @@ class QtPaymentDialog(SmoothModalOverlay):
         mode_row = QHBoxLayout()
         mode_row.setSpacing(8)
 
-        self.btn_cash = AnimatedButton("💵 Cash", content, variant="primary")
+        self.btn_cash = AnimatedButton("Cash", content, variant="primary")
         self.btn_cash.setFixedHeight(36)
         self.btn_cash.clicked.connect(lambda: self._set_method("cash"))
         mode_row.addWidget(self.btn_cash)
 
-        self.btn_split = AnimatedButton("⚖️ Split", content, variant="secondary")
+        self.btn_split = AnimatedButton("Split Payment", content, variant="secondary")
         self.btn_split.setFixedHeight(36)
         self.btn_split.clicked.connect(lambda: self._set_method("split"))
         mode_row.addWidget(self.btn_split)
 
-        self.btn_credit = AnimatedButton("📒 Credit / Due", content, variant="secondary")
+        self.btn_credit = AnimatedButton("Customer Khata / Due", content, variant="secondary")
         self.btn_credit.setFixedHeight(36)
         self.btn_credit.clicked.connect(lambda: self._set_method("credit"))
         mode_row.addWidget(self.btn_credit)
@@ -139,7 +148,7 @@ class QtPaymentDialog(SmoothModalOverlay):
         layout.addWidget(self.cash_frame)
 
         # Auto print checkbox
-        self.chk_print = QCheckBox("🖨️ Print receipt upon completing payment", content)
+        self.chk_print = QCheckBox("Print receipt upon completing payment", content)
         self.chk_print.setChecked(SettingsModel.get("auto_print", "0") == "1")
         self.chk_print.setStyleSheet(f"font-size: 12px; color: {COLORS['text_secondary']};")
         layout.addWidget(self.chk_print)
@@ -150,7 +159,7 @@ class QtPaymentDialog(SmoothModalOverlay):
         layout.addWidget(self.lbl_msg)
 
         # Action button
-        self.btn_confirm = AnimatedButton(f"✓ Confirm Payment ({self.currency} {self.total_amount:,.2f})", content, variant="success")
+        self.btn_confirm = AnimatedButton(f"Confirm Payment ({self.currency} {self.total_amount:,.2f})", content, variant="success", icon_name="check", icon_color="#FFFFFF", icon_size=16)
         self.btn_confirm.setFixedHeight(46)
         self.btn_confirm.setStyleSheet(f"""
             QPushButton {{
@@ -181,7 +190,7 @@ class QtPaymentDialog(SmoothModalOverlay):
             self.txt_tendered.setText(f"{self.total_amount:.2f}")
         elif method == "credit":
             if not self.customer:
-                self.lbl_msg.setText("⚠️ Credit / Due requires a customer to be selected!")
+                self.lbl_msg.setText("Customer selection is required for Credit / Khata.")
             else:
                 self.lbl_msg.setText("")
             self.cash_frame.hide()

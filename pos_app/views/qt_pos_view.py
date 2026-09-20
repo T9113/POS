@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QFont, QColor
 
 from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from pos_app.utils.icon_helper import get_icon
 from pos_app.controllers.cart_controller import CartController
 from pos_app.models.product_model import ProductModel
 from pos_app.models.category_model import CategoryModel
@@ -51,8 +52,9 @@ class QtPOSView(QWidget):
         search_layout = QHBoxLayout(search_card)
         search_layout.setContentsMargins(12, 10, 12, 10)
 
-        lbl_s_icon = QLabel("🔍", search_card)
-        lbl_s_icon.setStyleSheet("font-size: 16px;")
+        lbl_s_icon = QLabel(search_card)
+        lbl_s_icon.setPixmap(get_icon("search", color=COLORS["text_muted"], size=16).pixmap(16, 16))
+        lbl_s_icon.setFixedSize(18, 18)
         search_layout.addWidget(lbl_s_icon)
 
         self.txt_search = QLineEdit(search_card)
@@ -103,14 +105,19 @@ class QtPOSView(QWidget):
 
         # Cart Header
         cart_header = QHBoxLayout()
-        lbl_cart = QLabel("🛒 Current Sale Cart", cart_card)
+        cart_ico = QLabel(cart_card)
+        cart_ico.setPixmap(get_icon("cart", color=COLORS["primary"], size=18).pixmap(18, 18))
+        cart_ico.setFixedSize(20, 20)
+        cart_header.addWidget(cart_ico)
+
+        lbl_cart = QLabel("Current Sale Cart", cart_card)
         lbl_cart.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {COLORS['text_primary']};")
         cart_header.addWidget(lbl_cart)
 
         cart_header.addStretch()
 
         # Wholesale toggle
-        self.btn_wholesale = AnimatedButton("🏢 Retail", cart_card, variant="secondary")
+        self.btn_wholesale = AnimatedButton("Retail", cart_card, variant="secondary")
         self.btn_wholesale.setFixedHeight(30)
         self.btn_wholesale.clicked.connect(self._toggle_wholesale)
         cart_header.addWidget(self.btn_wholesale)
@@ -123,10 +130,10 @@ class QtPOSView(QWidget):
 
         self.cmb_customer = QComboBox(cart_card)
         self.cmb_customer.setFixedHeight(34)
-        self.cmb_customer.addItem("👤 Walk-in Customer (No Khata)", None)
+        self.cmb_customer.addItem("Walk-in Customer (No Khata)", None)
         cust_row.addWidget(self.cmb_customer, stretch=1)
 
-        btn_new_cust = AnimatedButton("+ New", cart_card, variant="secondary")
+        btn_new_cust = AnimatedButton(" New", cart_card, variant="secondary", icon_name="plus", icon_size=13)
         btn_new_cust.setFixedHeight(34)
         btn_new_cust.setToolTip("Add new customer")
         btn_new_cust.clicked.connect(self._open_new_customer_dialog)
@@ -195,19 +202,19 @@ class QtPOSView(QWidget):
         action_row = QHBoxLayout()
         action_row.setSpacing(8)
 
-        btn_void = AnimatedButton("Void", cart_card, variant="danger_subtle")
+        btn_void = AnimatedButton(" Void", cart_card, variant="danger_subtle", icon_name="trash", icon_color=COLORS["danger"], icon_size=14)
         btn_void.setFixedHeight(38)
         btn_void.clicked.connect(self._void_cart)
         action_row.addWidget(btn_void)
 
-        btn_hold = AnimatedButton("Hold", cart_card, variant="secondary")
+        btn_hold = AnimatedButton(" Hold", cart_card, variant="secondary")
         btn_hold.setFixedHeight(38)
         btn_hold.clicked.connect(self._hold_order)
         action_row.addWidget(btn_hold)
 
         cart_layout.addLayout(action_row)
 
-        self.btn_pay = AnimatedButton(f"Complete Sale (F12)  ➔", cart_card, variant="success")
+        self.btn_pay = AnimatedButton(" Complete Sale (F12)", cart_card, variant="success", icon_name="check", icon_color="#FFFFFF", icon_size=18)
         self.btn_pay.setFixedHeight(48)
         self.btn_pay.setStyleSheet(f"""
             QPushButton {{
@@ -382,7 +389,7 @@ class QtPOSView(QWidget):
             qty_layout.setContentsMargins(2, 2, 2, 2)
             qty_layout.setSpacing(4)
 
-            btn_minus = AnimatedButton("-", variant="secondary", is_icon_only=True)
+            btn_minus = AnimatedButton("", variant="secondary", icon_name="minus", icon_size=10, is_icon_only=True)
             btn_minus.setFixedSize(24, 24)
             btn_minus.setToolTip("Decrease Quantity")
             btn_minus.clicked.connect(lambda _, pid=itm["product_id"]: self._adjust_qty(pid, -1))
@@ -393,7 +400,7 @@ class QtPOSView(QWidget):
             lbl_q.setStyleSheet("font-weight: bold; font-size: 13px; min-width: 22px;")
             qty_layout.addWidget(lbl_q)
 
-            btn_plus = AnimatedButton("+", variant="secondary", is_icon_only=True)
+            btn_plus = AnimatedButton("", variant="secondary", icon_name="plus", icon_size=10, is_icon_only=True)
             btn_plus.setFixedSize(24, 24)
             btn_plus.setToolTip("Increase Quantity")
             btn_plus.clicked.connect(lambda _, pid=itm["product_id"]: self._adjust_qty(pid, 1))
@@ -409,7 +416,7 @@ class QtPOSView(QWidget):
             self.cart_table.setItem(row, 3, item_tot)
 
             # 4: Delete Button
-            btn_del = AnimatedButton("✕", variant="danger_subtle", is_icon_only=True)
+            btn_del = AnimatedButton("", variant="danger_subtle", icon_name="close", icon_color=COLORS["danger"], icon_size=10, is_icon_only=True)
             btn_del.setFixedSize(26, 26)
             btn_del.setToolTip("Remove from Cart")
             btn_del.clicked.connect(lambda _, pid=itm["product_id"]: self._remove_from_cart(pid))
@@ -440,7 +447,7 @@ class QtPOSView(QWidget):
 
     def _toggle_wholesale(self):
         self.is_wholesale = not self.is_wholesale
-        self.btn_wholesale.setText("🏢 Wholesale" if self.is_wholesale else "🏢 Retail")
+        self.btn_wholesale.setText("Wholesale" if self.is_wholesale else "Retail")
         self.btn_wholesale.setStyleSheet(
             f"background-color: {COLORS['primary']}; color: #FFFFFF;" if self.is_wholesale else ""
         )

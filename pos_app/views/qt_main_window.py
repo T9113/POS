@@ -5,7 +5,7 @@ fluid animations, deep slate sidebar navigation, live digital clock,
 EOD register closing, and QStackedWidget screen management.
 """
 from datetime import datetime
-from PySide6.QtCore import Qt, QPoint, QTimer
+from PySide6.QtCore import Qt, QPoint, QTimer, QSize
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QStackedWidget, QFrame, QMessageBox, QGraphicsDropShadowEffect
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QFont, QCursor, QIcon
 
 from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, apply_windows_native_corners
+from pos_app.utils.icon_helper import get_icon
 from pos_app.controllers.auth_controller import AuthController
 from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
@@ -129,8 +130,9 @@ class QtMainWindow(QMainWindow):
         layout.setSpacing(12)
 
         # Brand / App Title
-        brand_icon = QLabel("⚡", bar)
-        brand_icon.setStyleSheet("font-size: 18px;")
+        brand_icon = QLabel(bar)
+        brand_icon.setPixmap(get_icon("lightning", color="#F59E0B", size=20).pixmap(20, 20))
+        brand_icon.setFixedSize(22, 22)
         layout.addWidget(brand_icon)
 
         biz_name = SettingsModel.get("business_name", "OnesDev POS")
@@ -175,12 +177,17 @@ class QtMainWindow(QMainWindow):
         role_bg = COLORS["primary"] if u_role == "Admin" else COLORS["success"]
 
         user_badge = QFrame(bar)
-        user_badge.setStyleSheet(f"background-color: #334155; border-radius: 14px; padding: 2px 8px;")
+        user_badge.setStyleSheet("background-color: #334155; border-radius: 14px; padding: 2px 8px;")
         ub_l = QHBoxLayout(user_badge)
-        ub_l.setContentsMargins(6, 2, 6, 2)
+        ub_l.setContentsMargins(8, 2, 8, 2)
         ub_l.setSpacing(6)
 
-        lbl_u = QLabel(f"👤 {u_name}", user_badge)
+        lbl_u_icon = QLabel(user_badge)
+        lbl_u_icon.setPixmap(get_icon("user", color="#94A3B8", size=13).pixmap(13, 13))
+        lbl_u_icon.setFixedSize(14, 14)
+        ub_l.addWidget(lbl_u_icon)
+
+        lbl_u = QLabel(u_name, user_badge)
         lbl_u.setStyleSheet("color: #F8FAFC; font-size: 12px; font-weight: 600;")
         ub_l.addWidget(lbl_u)
 
@@ -190,21 +197,21 @@ class QtMainWindow(QMainWindow):
         layout.addWidget(user_badge)
 
         # Window Action Controls (Minimize, Maximize, Close)
-        btn_min = QPushButton("🗕", bar)
+        btn_min = QPushButton("─", bar)
         btn_min.setFixedSize(30, 30)
         btn_min.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_min.setStyleSheet("""
-            QPushButton { background: transparent; color: #94A3B8; font-size: 13px; border: none; border-radius: 6px; }
+            QPushButton { background: transparent; color: #94A3B8; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; }
             QPushButton:hover { background: #334155; color: #FFFFFF; }
         """)
         btn_min.clicked.connect(self.showMinimized)
         layout.addWidget(btn_min)
 
-        btn_max = QPushButton("🗖", bar)
+        btn_max = QPushButton("□", bar)
         btn_max.setFixedSize(30, 30)
         btn_max.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_max.setStyleSheet("""
-            QPushButton { background: transparent; color: #94A3B8; font-size: 13px; border: none; border-radius: 6px; }
+            QPushButton { background: transparent; color: #94A3B8; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; }
             QPushButton:hover { background: #334155; color: #FFFFFF; }
         """)
         btn_max.clicked.connect(self._toggle_maximize)
@@ -236,20 +243,20 @@ class QtMainWindow(QMainWindow):
         layout.setContentsMargins(8, 12, 8, 12)
         layout.setSpacing(4)
 
-        # Nav items list
+        # Nav items list: (key, icon_name, label)
         self.nav_items = [
-            ("pos", "🛒", "Point of Sale"),
-            ("dashboard", "📊", "Dashboard"),
-            ("products", "🏷️", "Products"),
-            ("inventory", "📦", "Inventory"),
-            ("customers", "👥", "Customers"),
-            ("sales", "🧾", "Sales & Orders"),
-            ("reports", "📈", "Reports"),
-            ("expenses", "💸", "Expenses"),
-            ("settings", "⚙️", "Settings"),
+            ("pos", "cart", "Point of Sale"),
+            ("dashboard", "dashboard", "Dashboard"),
+            ("products", "products", "Products"),
+            ("inventory", "inventory", "Inventory"),
+            ("customers", "customers", "Customers"),
+            ("sales", "sales", "Sales & Orders"),
+            ("reports", "reports", "Reports"),
+            ("expenses", "expenses", "Expenses"),
+            ("settings", "settings", "Settings"),
         ]
 
-        for key, icon, label in self.nav_items:
+        for key, icon_key, label in self.nav_items:
             if not AuthController.can_access(key):
                 continue
 
@@ -257,7 +264,11 @@ class QtMainWindow(QMainWindow):
             btn.setFixedHeight(42)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setProperty("nav_key", key)
-            btn.setText(f"  {icon}   {label}")
+            btn.setProperty("icon_key", icon_key)
+            btn.setProperty("nav_label", label)
+            btn.setText(f"  {label}")
+            btn.setIcon(get_icon(icon_key, color=COLORS["sidebar_text"], size=18))
+            btn.setIconSize(QSize(18, 18))
             btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: transparent;
@@ -281,11 +292,13 @@ class QtMainWindow(QMainWindow):
         layout.addStretch()
 
         # Logout button
-        btn_logout = QPushButton("  🚪   Sign Out", self.sidebar_frame)
-        btn_logout.setFixedHeight(40)
-        btn_logout.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_logout.setStyleSheet(f"""
-            QPushButton {{
+        self.btn_logout = QPushButton("  Sign Out", self.sidebar_frame)
+        self.btn_logout.setIcon(get_icon("logout", color="#EF4444", size=18))
+        self.btn_logout.setIconSize(QSize(18, 18))
+        self.btn_logout.setFixedHeight(40)
+        self.btn_logout.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_logout.setStyleSheet("""
+            QPushButton {
                 background-color: transparent;
                 color: #EF4444;
                 text-align: left;
@@ -294,14 +307,14 @@ class QtMainWindow(QMainWindow):
                 font-weight: 600;
                 border-radius: 8px;
                 border: none;
-            }}
-            QPushButton:hover {{
+            }
+            QPushButton:hover {
                 background-color: rgba(239, 68, 68, 0.15);
                 color: #F87171;
-            }}
+            }
         """)
-        btn_logout.clicked.connect(self._do_logout)
-        layout.addWidget(btn_logout)
+        self.btn_logout.clicked.connect(self._do_logout)
+        layout.addWidget(self.btn_logout)
 
         return self.sidebar_frame
 
@@ -412,28 +425,31 @@ class QtMainWindow(QMainWindow):
             QMessageBox.warning(self, "Access Denied", "Your user role does not have permission to access this module.")
             return
 
-        # Update sidebar button styles
+        # Update sidebar button styles and icon colors
         for k, btn in self.nav_buttons.items():
+            icon_key = btn.property("icon_key") or "cart"
             if k == key:
+                btn.setIcon(get_icon(icon_key, color="#FFFFFF", size=18))
                 btn.setStyleSheet(f"""
                     QPushButton {{
                         background-color: {COLORS['sidebar_active_bg']};
                         color: {COLORS['sidebar_active_text']};
-                        text-align: left;
-                        padding-left: 14px;
+                        text-align: {"center" if self.sidebar_collapsed else "left"};
+                        padding-left: {0 if self.sidebar_collapsed else 14}px;
                         font-size: 13px;
                         font-weight: 700;
                         border-radius: 8px;
-                        border-left: 4px solid {COLORS['sidebar_indicator']};
+                        border-left: {0 if self.sidebar_collapsed else 4}px solid {COLORS['sidebar_indicator']};
                     }}
                 """)
             else:
+                btn.setIcon(get_icon(icon_key, color=COLORS['sidebar_text'], size=18))
                 btn.setStyleSheet(f"""
                     QPushButton {{
                         background-color: transparent;
                         color: {COLORS['sidebar_text']};
-                        text-align: left;
-                        padding-left: 14px;
+                        text-align: {"center" if self.sidebar_collapsed else "left"};
+                        padding-left: {0 if self.sidebar_collapsed else 14}px;
                         font-size: 13px;
                         font-weight: 600;
                         border-radius: 8px;
@@ -464,15 +480,26 @@ class QtMainWindow(QMainWindow):
         new_width = 64 if self.sidebar_collapsed else 210
         self.sidebar_frame.setFixedWidth(new_width)
 
-        for key, icon, label in self.nav_items:
-            if key in self.nav_buttons:
-                btn = self.nav_buttons[key]
-                if self.sidebar_collapsed:
-                    btn.setText(icon)
-                    btn.setStyleSheet(btn.styleSheet() + "text-align: center; padding-left: 0px;")
-                else:
-                    btn.setText(f"  {icon}   {label}")
-                    btn.setStyleSheet(btn.styleSheet() + "text-align: left; padding-left: 14px;")
+        for key, btn in self.nav_buttons.items():
+            label = btn.property("nav_label") or ""
+            if self.sidebar_collapsed:
+                btn.setText("")
+                btn.setToolTip(label)
+                btn.setStyleSheet(btn.styleSheet() + "text-align: center; padding-left: 0px;")
+            else:
+                btn.setText(f"  {label}")
+                btn.setToolTip("")
+                btn.setStyleSheet(btn.styleSheet() + "text-align: left; padding-left: 14px;")
+
+        if hasattr(self, "btn_logout"):
+            if self.sidebar_collapsed:
+                self.btn_logout.setText("")
+                self.btn_logout.setToolTip("Sign Out")
+                self.btn_logout.setStyleSheet(self.btn_logout.styleSheet() + "text-align: center; padding-left: 0px;")
+            else:
+                self.btn_logout.setText("  Sign Out")
+                self.btn_logout.setToolTip("")
+                self.btn_logout.setStyleSheet(self.btn_logout.styleSheet() + "text-align: left; padding-left: 14px;")
 
     def _toggle_maximize(self):
         if self.isMaximized():

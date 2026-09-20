@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QFont, QGuiApplication
 
 from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, apply_windows_native_corners
+from pos_app.utils.icon_helper import get_icon
 from pos_app.utils.license_manager import LicenseManager
 
 
@@ -47,16 +48,22 @@ class QtRegistrationWindow(QMainWindow):
 
         # Top Bar (Close button)
         top_bar = QHBoxLayout()
-        lbl_brand_tag = QLabel("🔒 LICENSED SOFTWARE", self.card)
+        ico_lock = QLabel(self.card)
+        ico_lock.setPixmap(get_icon("lock", color=COLORS["primary"], size=15).pixmap(15, 15))
+        ico_lock.setFixedSize(16, 16)
+        top_bar.addWidget(ico_lock)
+
+        lbl_brand_tag = QLabel("LICENSED SOFTWARE", self.card)
         lbl_brand_tag.setStyleSheet(f"font-size: 11px; font-weight: 800; color: {COLORS['primary']}; letter-spacing: 0.5px;")
         top_bar.addWidget(lbl_brand_tag)
 
         top_bar.addStretch()
 
-        btn_close = QPushButton("✕", self.card)
+        btn_close = QPushButton("", self.card)
+        btn_close.setIcon(get_icon("close", color=COLORS["text_muted"], size=14))
         btn_close.setFixedSize(26, 26)
         btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_close.setStyleSheet("background: transparent; color: #94A3B8; font-size: 14px; font-weight: bold; border: none; border-radius: 13px;")
+        btn_close.setStyleSheet("background: transparent; border: none; border-radius: 13px;")
         btn_close.clicked.connect(self.close)
         top_bar.addWidget(btn_close)
         card_layout.addLayout(top_bar)
@@ -102,7 +109,7 @@ class QtRegistrationWindow(QMainWindow):
         self.lbl_machine_id.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hw_layout.addWidget(self.lbl_machine_id)
 
-        btn_copy = AnimatedButton("📋 Copy Machine ID to Clipboard", hwid_box, variant="secondary")
+        btn_copy = AnimatedButton(" Copy Machine ID to Clipboard", hwid_box, variant="secondary", icon_name="copy", icon_size=14)
         btn_copy.setFixedHeight(34)
         btn_copy.clicked.connect(self._copy_machine_id)
         hw_layout.addWidget(btn_copy)
@@ -135,11 +142,13 @@ class QtRegistrationWindow(QMainWindow):
                 border: 1.5px solid {COLORS['border_focus']};
             }}
         """)
+        self.txt_key.textChanged.connect(self._clear_key_error)
         card_layout.addWidget(self.txt_key)
 
         # Load file button row
         file_row = QHBoxLayout()
-        btn_load_file = QPushButton("📂 Load from .lic file", self.card)
+        btn_load_file = QPushButton("Load from .lic file", self.card)
+        btn_load_file.setIcon(get_icon("folder", color=COLORS["primary"], size=14))
         btn_load_file.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_load_file.setStyleSheet(f"""
             QPushButton {{
@@ -164,13 +173,29 @@ class QtRegistrationWindow(QMainWindow):
         card_layout.addWidget(self.lbl_error)
 
         # Activate Button
-        self.btn_activate = AnimatedButton("🔓 Activate Software Now", self.card, variant="primary")
+        self.btn_activate = AnimatedButton(" Activate Software Now", self.card, variant="primary", icon_name="check", icon_color="#FFFFFF", icon_size=16)
         self.btn_activate.setFixedHeight(44)
         self.btn_activate.clicked.connect(self._handle_activate)
         card_layout.addWidget(self.btn_activate)
 
         card_layout.addStretch()
         root_layout.addWidget(self.card)
+
+    def _clear_key_error(self):
+        self.txt_key.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {COLORS['bg_input']};
+                border: 1.5px solid {COLORS['border']};
+                border-radius: 8px;
+                padding: 8px;
+                font-family: Consolas, monospace;
+                font-size: 11px;
+            }}
+            QPlainTextEdit:focus {{
+                border: 1.5px solid {COLORS['border_focus']};
+            }}
+        """)
+        self.lbl_error.setText("")
 
     def _copy_machine_id(self):
         clipboard = QGuiApplication.clipboard()
@@ -186,19 +211,30 @@ class QtRegistrationWindow(QMainWindow):
                 with open(path, "r", encoding="utf-8") as f:
                     key = f.read().strip()
                     self.txt_key.setPlainText(key)
-                    self.lbl_error.setText("")
+                    self._clear_key_error()
             except Exception as e:
                 self.lbl_error.setText(f"Could not read license file: {str(e)}")
 
     def _handle_activate(self):
         key = self.txt_key.toPlainText().strip()
         if not key:
+            self.txt_key.setStyleSheet(f"""
+                QPlainTextEdit {{
+                    background-color: {COLORS['bg_error']};
+                    border: 1.5px solid {COLORS['border_error']};
+                    border-radius: 8px;
+                    padding: 8px;
+                    font-family: Consolas, monospace;
+                    font-size: 11px;
+                }}
+            """)
             self.lbl_error.setText("Please paste a valid license key or load a .lic file.")
+            self.txt_key.setFocus()
             return
 
         valid, msg, payload = LicenseManager.verify_license(key)
         if not valid:
-            self.lbl_error.setText(f"❌ Activation Failed: {msg}")
+            self.lbl_error.setText(f"Activation Failed: {msg}")
             return
 
         # Save verified license
