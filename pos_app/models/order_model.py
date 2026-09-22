@@ -4,6 +4,35 @@ from pos_app.database import get_db
 from pos_app.models.settings_model import SettingsModel
 from pos_app.models.customer_model import CustomerModel
 
+class OrderResult(tuple):
+    """Dual-mode return value that supports both 3-tuple unpacking and dictionary access."""
+    def __new__(cls, order_id, order_number, loyalty_earned, order_dict=None):
+        instance = super().__new__(cls, (order_id, order_number, loyalty_earned))
+        instance.order_id = order_id
+        instance.order_number = order_number
+        instance.loyalty_earned = loyalty_earned
+        instance._order_dict = order_dict or {}
+        return instance
+
+    def get(self, key, default=None):
+        if key == "success":
+            return True
+        if key == "order":
+            return self._order_dict
+        if key == "order_id":
+            return self.order_id
+        if key == "order_number":
+            return self.order_number
+        if key == "loyalty_earned":
+            return self.loyalty_earned
+        return self._order_dict.get(key, default)
+
+    def __getitem__(self, item):
+        if isinstance(item, str):
+            return self.get(item)
+        return super().__getitem__(item)
+
+
 class OrderModel:
     @staticmethod
     def generate_order_number():
@@ -15,16 +44,48 @@ class OrderModel:
             return f"ORD-{date_str}-{count:04d}"
 
     @staticmethod
-    def create_order(order_data: dict, items: list):
+    def create_order(order_data: dict = None, items: list = None, **kwargs):
         """
         Creates an order and order items atomically, calculates cost_total and profit,
         decrements inventory, handles customer loyalty points, and adjusts customer balance if on credit.
+        Supports both positional (order_data, items) and keyword arguments.
         """
+        if order_data is None:
+            order_data = kwargs
+        else:
+            # Merge any extra kwargs into order_data
+            order_data = {**order_data, **kwargs}
+
+        if items is None:
+            items = order_data.get("items") or kwargs.get("items") or []
+
         order_number = order_data.get("order_number") or OrderModel.generate_order_number()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Calculate cost_total and profit
-        cost_total = sum(float(item.get("cost_price", 0.0)) * float(item.get("quantity", 1)) for item in items)
+        # Normalize items list (support both CartController keys and OrderItem keys)
+        normalized_items = []
+        cost_total = 0.0
+        for item in items:
+            prod_name = item.get("product_name") or item.get("name") or "Item"
+            u_price = float(item.get("unit_price") if item.get("unit_price") is not None else item.get("price", 0.0))
+            c_price = float(item.get("cost_price", 0.0))
+            disc = float(item.get("discount", 0.0))
+            qty = float(item.get("quantity", 1))
+            tot = float(item.get("total") if item.get("total") is not None else round((u_price - disc) * qty, 2))
+            
+            cost_total += c_price * qty
+            normalized_items.append({
+                "product_id": item.get("product_id"),
+                "product_name": prod_name,
+                "unit_price": u_price,
+                "cost_price": c_price,
+                "discount": disc,
+                "quantity": qty,
+                "total": tot,
+                "price_override": int(item.get("price_override", 0)),
+                "override_reason": item.get("override_reason", "")
+            })
+
         total = float(order_data.get("total", 0.0))
         tax_amount = float(order_data.get("tax_amount", 0.0))
         # Profit = Net revenue (excluding tax) minus product cost
@@ -73,7 +134,7 @@ class OrderModel:
             ))
             order_id = cursor.lastrowid
 
-            for item in items:
+            for item in normalized_items:
                 cursor.execute("""
                     INSERT INTO order_items (
                         order_id, product_id, product_name, quantity,
@@ -82,23 +143,23 @@ class OrderModel:
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     order_id,
-                    item.get("product_id"),
-                    item.get("product_name"),
-                    float(item.get("quantity", 1)),
-                    float(item.get("unit_price", 0.0)),
-                    float(item.get("cost_price", 0.0)),
-                    float(item.get("discount", 0.0)),
-                    float(item.get("total", 0.0)),
-                    int(item.get("price_override", 0)),
-                    item.get("override_reason", "")
+                    item["product_id"],
+                    item["product_name"],
+                    item["quantity"],
+                    item["unit_price"],
+                    item["cost_price"],
+                    item["discount"],
+                    item["total"],
+                    item["price_override"],
+                    item["override_reason"]
                 ))
                 # Decrement inventory stock
-                if item.get("product_id"):
+                if item["product_id"]:
                     cursor.execute("""
                         UPDATE products 
                         SET current_stock = current_stock - ?, updated_at = ?
                         WHERE id = ?
-                    """, (float(item.get("quantity", 1)), now, item["product_id"]))
+                    """, (item["quantity"], now, item["product_id"]))
 
             # If customer has unpaid balance
             paid = float(order_data.get("amount_paid", 0.0))
@@ -106,7 +167,9 @@ class OrderModel:
             if customer_id and due > 0:
                 cursor.execute("UPDATE customers SET balance = balance + ? WHERE id = ?", (due, customer_id))
 
-            return order_id, order_number, loyalty_earned
+        full_order = OrderModel.get_order_by_id(order_id) or {}
+        full_order["loyalty_earned"] = loyalty_earned
+        return OrderResult(order_id, order_number, loyalty_earned, order_dict=full_order)
 
     @staticmethod
     def get_order_by_id(order_id: int):

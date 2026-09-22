@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-    QFrame, QSplitter
+    QFrame, QSplitter, QInputDialog
 )
 
 from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
@@ -223,6 +223,13 @@ class QtCustomersView(QWidget):
         lbl_bal.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {'#DC2626' if bal > 0 else '#059669'};")
         bal_l.addWidget(bal_icon)
         bal_l.addWidget(lbl_bal, stretch=1)
+
+        if bal > 0:
+            btn_pay_due = AnimatedButton("Collect Due", bal_w, variant="success", icon_name="check", icon_color="#FFFFFF", icon_size=12)
+            btn_pay_due.setFixedHeight(28)
+            btn_pay_due.clicked.connect(lambda _, c=customer: self._collect_due(c))
+            bal_l.addWidget(btn_pay_due)
+
         inf_l.addWidget(bal_w)
 
         self.right_layout.addWidget(info_box)
@@ -277,3 +284,21 @@ class QtCustomersView(QWidget):
             QMessageBox.information(self, "Export Complete", f"Customers exported successfully:\n\n{path}")
         except Exception as e:
             QMessageBox.warning(self, "Export Error", str(e))
+
+    def _collect_due(self, customer: dict):
+        cur_bal = float(customer.get("balance", 0.0))
+        amt, ok = QInputDialog.getDouble(
+            self, "Collect Khata Due",
+            f"Enter payment amount received from {customer.get('name')}:\n\n(Current Overdue Balance: {self.currency} {cur_bal:,.2f})",
+            cur_bal, 0.01, cur_bal, 2
+        )
+        if ok and amt > 0:
+            CustomerModel.pay_due(customer["id"], amt)
+            QMessageBox.information(
+                self, "Payment Received",
+                f"Successfully recorded payment of {self.currency} {amt:,.2f} for {customer.get('name')}."
+            )
+            self.refresh_customers()
+            updated_c = CustomerModel.get_by_id(customer["id"])
+            if updated_c:
+                self._render_customer_profile(updated_c)

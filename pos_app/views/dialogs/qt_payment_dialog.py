@@ -246,8 +246,11 @@ class QtPaymentDialog(SmoothModalOverlay):
             self.lbl_msg.setText("Please select a customer first to assign credit ledger!")
             return
 
-        tendered = self.total_amount
-        if self.payment_method in ("cash", "split"):
+        if self.payment_method == "credit":
+            tendered = 0.0
+            change_due = 0.0
+            payment_status = "credit"
+        elif self.payment_method in ("cash", "split"):
             try:
                 tendered = float(self.txt_tendered.text() or 0.0)
                 if self.payment_method == "cash" and tendered < self.total_amount:
@@ -256,6 +259,12 @@ class QtPaymentDialog(SmoothModalOverlay):
             except ValueError:
                 self.lbl_msg.setText("Invalid tendered amount entered.")
                 return
+            change_due = max(0.0, tendered - self.total_amount)
+            payment_status = "paid" if tendered >= self.total_amount else "partial"
+        else:
+            tendered = self.total_amount
+            change_due = 0.0
+            payment_status = "paid"
 
         # Prepare payload and save order
         user = AuthController.get_current_user()
@@ -263,10 +272,9 @@ class QtPaymentDialog(SmoothModalOverlay):
         cust_id = self.customer["id"] if self.customer else None
 
         items = self.cart_data.get("items", [])
-        subtotal = self.cart_data.get("subtotal", self.total_amount)
-        discount = self.cart_data.get("discount", 0.0)
-        tax = self.cart_data.get("tax", 0.0)
-        change_due = max(0.0, tendered - self.total_amount)
+        subtotal = float(self.cart_data.get("subtotal", self.total_amount))
+        discount = float(self.cart_data.get("discount", 0.0))
+        tax = float(self.cart_data.get("tax", 0.0))
 
         order_res = OrderModel.create_order(
             customer_id=cust_id,
@@ -278,19 +286,15 @@ class QtPaymentDialog(SmoothModalOverlay):
             total=self.total_amount,
             amount_paid=tendered,
             change_due=change_due,
-            payment_method=self.payment_method
+            payment_method=self.payment_method,
+            payment_status=payment_status
         )
 
         if not order_res or not order_res.get("success"):
             self.lbl_msg.setText("Failed to record order into database.")
             return
 
-        order_dict = order_res.get("order", {})
-
-        # If credit, update customer khata balance
-        if self.payment_method == "credit" and self.customer:
-            new_bal = self.customer.get("balance", 0.0) + self.total_amount
-            CustomerModel.update_balance(self.customer["id"], new_bal)
+        order_dict = order_res.get("order") or {}
 
         # Print receipt if requested
         if self.chk_print.isChecked():

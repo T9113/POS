@@ -65,11 +65,27 @@ class CustomerModel:
             return cursor.rowcount > 0
 
     @staticmethod
+    def update_balance(customer_id: int, new_balance: float):
+        """Sets customer's due balance directly."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE customers SET balance = ? WHERE id = ?", (float(new_balance), customer_id))
+            return cursor.rowcount > 0
+
+    @staticmethod
     def adjust_balance(customer_id: int, amount: float):
         """Add to customer's due balance (positive = more due, negative = payment received)"""
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("UPDATE customers SET balance = balance + ? WHERE id = ?", (amount, customer_id))
+            return cursor.rowcount > 0
+
+    @staticmethod
+    def pay_due(customer_id: int, payment_amount: float):
+        """Deducts payment from customer's due balance (floor at 0.0)."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE customers SET balance = MAX(0.0, balance - ?) WHERE id = ?", (float(payment_amount), customer_id))
             return cursor.rowcount > 0
 
     @staticmethod

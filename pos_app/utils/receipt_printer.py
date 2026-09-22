@@ -130,8 +130,8 @@ class ReceiptPrinter:
         return "\n".join(lines)
 
     @staticmethod
-    def print_receipt(order: dict, printer_name: str = None) -> tuple[bool, str]:
-        width = SettingsModel.get("receipt_width", "80mm")
+    def print_receipt(order: dict, printer_name: str = None, width: str = None, **kwargs) -> tuple[bool, str]:
+        width = width or SettingsModel.get("receipt_width", "80mm")
         receipt_text = ReceiptPrinter.format_receipt_text(order, width)
 
         if sys.platform != "win32":
@@ -162,4 +162,4 @@ class ReceiptPrinter:
 
             return True, f"Printed successfully to {target_printer}"
         except Exception as e:
-            return False, f"Could not print to hardware printer: {e}"
+            return False, f"Could not print to printer '{target_printer}': {e}"

@@ -15,6 +15,7 @@ from pos_app.utils.icon_helper import get_icon
 from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.utils.receipt_printer import ReceiptPrinter
+from pos_app.views.dialogs.qt_receipt_dialog import QtReceiptPreviewDialog
 
 
 class QtSalesView(QWidget):
@@ -258,11 +259,26 @@ class QtSalesView(QWidget):
         tot_l.addWidget(QLabel(f"Amount Paid: {self.currency} {paid:,.2f}  |  Change Due: {self.currency} {change:,.2f}"))
         self.right_layout.addWidget(totals_card)
 
-        # Action Buttons: Reprint Receipt
-        btn_reprint = AnimatedButton("Re-Print Receipt", self.right_card, variant="primary", icon_name="printer")
+        # Action Buttons: Preview & Reprint Receipt
+        btn_box = QHBoxLayout()
+        btn_box.setSpacing(8)
+
+        btn_preview = AnimatedButton("Preview Receipt", self.right_card, variant="secondary", icon_name="copy")
+        btn_preview.setFixedHeight(38)
+        btn_preview.clicked.connect(lambda: self._preview_receipt(full_order))
+        btn_box.addWidget(btn_preview)
+
+        btn_reprint = AnimatedButton("Print Receipt", self.right_card, variant="primary", icon_name="printer", icon_color="#FFFFFF")
         btn_reprint.setFixedHeight(38)
         btn_reprint.clicked.connect(lambda: self._reprint_receipt(full_order))
-        self.right_layout.addWidget(btn_reprint)
+        btn_box.addWidget(btn_reprint)
+
+        self.right_layout.addLayout(btn_box)
+
+    def _preview_receipt(self, order: dict):
+        top_window = self.window()
+        dlg = QtReceiptPreviewDialog(top_window, order)
+        dlg.show_animated()
 
     def _reprint_receipt(self, order: dict):
         ok, msg = ReceiptPrinter.print_receipt(order)

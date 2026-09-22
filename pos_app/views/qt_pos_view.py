@@ -203,6 +203,29 @@ class QtPOSView(QWidget):
         sub_row.addWidget(self.lbl_subtotal)
         tot_layout.addLayout(sub_row)
 
+        self.disc_widget = QWidget(totals_frame)
+        disc_layout = QHBoxLayout(self.disc_widget)
+        disc_layout.setContentsMargins(0, 0, 0, 0)
+        disc_layout.addWidget(QLabel("Discount:", self.disc_widget))
+        self.lbl_disc_summary = QLabel(f"-{self.currency} 0.00", self.disc_widget)
+        self.lbl_disc_summary.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.lbl_disc_summary.setStyleSheet("font-family: Consolas, monospace; font-weight: bold; color: #DC2626;")
+        disc_layout.addWidget(self.lbl_disc_summary)
+        self.disc_widget.hide()
+        tot_layout.addWidget(self.disc_widget)
+
+        self.tax_widget = QWidget(totals_frame)
+        tax_layout = QHBoxLayout(self.tax_widget)
+        tax_layout.setContentsMargins(0, 0, 0, 0)
+        self.lbl_tax_name = QLabel("Tax:", self.tax_widget)
+        tax_layout.addWidget(self.lbl_tax_name)
+        self.lbl_tax = QLabel(f"{self.currency} 0.00", self.tax_widget)
+        self.lbl_tax.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.lbl_tax.setStyleSheet("font-family: Consolas, monospace; font-weight: bold; color: #0284C7;")
+        tax_layout.addWidget(self.lbl_tax)
+        self.tax_widget.hide()
+        tot_layout.addWidget(self.tax_widget)
+
         grand_row = QHBoxLayout()
         lbl_g = QLabel("TOTAL DUE:", totals_frame)
         lbl_g.setStyleSheet(f"font-weight: bold; font-size: 14px; color: {COLORS['primary']};")
@@ -454,10 +477,47 @@ class QtPOSView(QWidget):
             self.cart_table.setCellWidget(row, 4, btn_del)
 
         # Update totals
-        subtotal = self.cart_controller.get_subtotal()
-        grand_total = self.cart_controller.get_grand_total()
+        subtotal, discount, tax_amount, tax_pct, tax_name, tax_type, grand_total = self._calculate_totals()
         self.lbl_subtotal.setText(f"{self.currency} {subtotal:,.2f}")
+        if discount > 0:
+            self.lbl_disc_summary.setText(f"-{self.currency} {discount:,.2f}")
+            self.disc_widget.show()
+        else:
+            self.disc_widget.hide()
+
+        if tax_amount > 0:
+            mode_str = " (Incl.)" if tax_type == "inclusive" else ""
+            self.lbl_tax_name.setText(f"{tax_name} ({tax_pct:g}%{mode_str}):")
+            self.lbl_tax.setText(f"{self.currency} {tax_amount:,.2f}")
+            self.tax_widget.show()
+        else:
+            self.tax_widget.hide()
+
         self.lbl_grand_total.setText(f"{self.currency} {grand_total:,.2f}")
+
+    def _calculate_totals(self):
+        subtotal = self.cart_controller.get_subtotal()
+        discount = self.cart_controller.get_discount()
+        net_subtotal = max(0.0, subtotal - discount)
+
+        settings = SettingsModel.get_all()
+        enable_tax = settings.get("enable_tax", "0") == "1"
+        tax_pct = float(settings.get("tax_percentage", "0") or 0.0) if enable_tax else 0.0
+        tax_name = settings.get("tax_name", "VAT")
+        tax_type = settings.get("tax_type", "exclusive")
+
+        tax_amount = 0.0
+        if enable_tax and tax_pct > 0:
+            if tax_type == "inclusive":
+                tax_amount = round(net_subtotal - (net_subtotal / (1.0 + (tax_pct / 100.0))), 2)
+                grand_total = round(net_subtotal, 2)
+            else:
+                tax_amount = round((net_subtotal * tax_pct) / 100.0, 2)
+                grand_total = round(net_subtotal + tax_amount, 2)
+        else:
+            grand_total = round(net_subtotal, 2)
+
+        return subtotal, discount, tax_amount, tax_pct, tax_name, tax_type, grand_total
 
     def _adjust_qty(self, product_id, delta):
         self.cart_controller.adjust_quantity(product_id, delta)
@@ -521,12 +581,14 @@ class QtPOSView(QWidget):
             QMessageBox.warning(self, "Empty Cart", "Please add at least one product before proceeding to payment!")
             return
 
+        subtotal, discount, tax_amount, tax_pct, tax_name, tax_type, grand_total = self._calculate_totals()
         customer = self.cmb_customer.currentData()
         cart_data = {
             "items": items,
-            "subtotal": self.cart_controller.get_subtotal(),
-            "discount": self.cart_controller.get_discount(),
-            "grand_total": self.cart_controller.get_grand_total()
+            "subtotal": subtotal,
+            "discount": discount,
+            "tax": tax_amount,
+            "grand_total": grand_total
         }
 
         top_window = self.window()
