@@ -20,6 +20,7 @@ from pos_app.models.customer_model import CustomerModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.views.dialogs.qt_payment_dialog import QtPaymentDialog
 from pos_app.views.dialogs.qt_customer_dialog import QtCustomerDialog
+from pos_app.views.dialogs.qt_hold_orders_dialog import QtHoldOrdersDialog
 
 
 class QtPOSView(QWidget):
@@ -209,7 +210,7 @@ class QtPOSView(QWidget):
         disc_layout.addWidget(QLabel("Discount:", self.disc_widget))
         self.lbl_disc_summary = QLabel(f"-{self.currency} 0.00", self.disc_widget)
         self.lbl_disc_summary.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.lbl_disc_summary.setStyleSheet("font-family: Consolas, monospace; font-weight: bold; color: #DC2626;")
+        self.lbl_disc_summary.setStyleSheet(f"font-family: Consolas, monospace; font-weight: bold; color: {COLORS['danger']};")
         disc_layout.addWidget(self.lbl_disc_summary)
         self.disc_widget.hide()
         tot_layout.addWidget(self.disc_widget)
@@ -221,7 +222,7 @@ class QtPOSView(QWidget):
         tax_layout.addWidget(self.lbl_tax_name)
         self.lbl_tax = QLabel(f"{self.currency} 0.00", self.tax_widget)
         self.lbl_tax.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.lbl_tax.setStyleSheet("font-family: Consolas, monospace; font-weight: bold; color: #0284C7;")
+        self.lbl_tax.setStyleSheet(f"font-family: Consolas, monospace; font-weight: bold; color: {COLORS['info']};")
         tax_layout.addWidget(self.lbl_tax)
         self.tax_widget.hide()
         tot_layout.addWidget(self.tax_widget)
@@ -252,6 +253,11 @@ class QtPOSView(QWidget):
         btn_hold.setFixedHeight(38)
         btn_hold.clicked.connect(self._hold_order)
         action_row.addWidget(btn_hold)
+
+        btn_recall = AnimatedButton(" Recall", cart_card, variant="secondary", icon_name="undo", icon_color=COLORS["primary"], icon_size=14)
+        btn_recall.setFixedHeight(38)
+        btn_recall.clicked.connect(self._open_held_orders)
+        action_row.addWidget(btn_recall)
 
         cart_layout.addLayout(action_row)
 
@@ -560,6 +566,25 @@ class QtPOSView(QWidget):
         self.cart_controller.clear()
         self._render_cart()
         QMessageBox.information(self, "Order Held", "Order has been placed on hold successfully.")
+
+    def _open_held_orders(self):
+        top_window = self.window()
+        self.dlg_held = QtHoldOrdersDialog(top_window, on_recall=self._recall_held_order)
+        self.dlg_held.show_animated()
+
+    def _recall_held_order(self, cart_data):
+        self.cart_controller.clear()
+        items = cart_data.get("items", [])
+        for item in items:
+            self.cart_controller.add_item(
+                product_id=item.get("product_id"),
+                name=item.get("name", ""),
+                price=float(item.get("price", 0)),
+                cost_price=float(item.get("cost_price", 0)),
+                quantity=int(item.get("quantity", 1)),
+                unit=item.get("unit", "pc")
+            )
+        self._render_cart()
 
     def _open_new_customer_dialog(self):
         top_window = self.window()

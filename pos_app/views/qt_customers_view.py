@@ -217,10 +217,10 @@ class QtCustomersView(QWidget):
         bal_l.setContentsMargins(0, 4, 0, 0)
         bal_l.setSpacing(8)
         bal_icon = QLabel(bal_w)
-        bal_icon.setPixmap(get_icon("credit_card", '#DC2626' if bal > 0 else '#059669', 16).pixmap(16, 16))
+        bal_icon.setPixmap(get_icon("credit_card", COLORS['danger'] if bal > 0 else COLORS['success'], 16).pixmap(16, 16))
         bal_icon.setFixedWidth(18)
         lbl_bal = QLabel(f"Khata / Credit Due: {self.currency} {bal:,.2f}", bal_w)
-        lbl_bal.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {'#DC2626' if bal > 0 else '#059669'};")
+        lbl_bal.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {COLORS['danger'] if bal > 0 else COLORS['success']};")
         bal_l.addWidget(bal_icon)
         bal_l.addWidget(lbl_bal, stretch=1)
 

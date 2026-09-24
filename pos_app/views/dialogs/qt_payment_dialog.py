@@ -69,7 +69,7 @@ class QtPaymentDialog(SmoothModalOverlay):
 
         # Total Amount Due Banner
         banner = QFrame(content)
-        banner.setStyleSheet(f"background-color: {COLORS['primary_subtle']}; border-radius: 10px; border: 1.5px solid #C7D2FE;")
+        banner.setStyleSheet(f"background-color: {COLORS['primary_subtle']}; border-radius: 10px; border: 1.5px solid #BFDBFE;")
         banner_layout = QVBoxLayout(banner)
         banner_layout.setContentsMargins(16, 12, 16, 12)
 

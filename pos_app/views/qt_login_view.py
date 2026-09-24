@@ -57,7 +57,7 @@ class QtLoginView(QWidget):
 
         logo_badge = QFrame(logo_container)
         logo_badge.setFixedSize(54, 54)
-        logo_badge.setStyleSheet(f"background-color: {COLORS['primary_subtle']}; border-radius: 27px; border: 1px solid #C7D2FE;")
+        logo_badge.setStyleSheet(f"background-color: {COLORS['primary_subtle']}; border-radius: 27px; border: 1px solid #BFDBFE;")
         badge_l = QVBoxLayout(logo_badge)
         badge_l.setContentsMargins(0, 0, 0, 0)
         badge_l.setAlignment(Qt.AlignmentFlag.AlignCenter)

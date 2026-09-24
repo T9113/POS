@@ -16,6 +16,7 @@ from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.utils.receipt_printer import ReceiptPrinter
 from pos_app.views.dialogs.qt_receipt_dialog import QtReceiptPreviewDialog
+from pos_app.views.dialogs.qt_return_dialog import QtReturnDialog
 
 
 class QtSalesView(QWidget):
@@ -273,6 +274,12 @@ class QtSalesView(QWidget):
         btn_reprint.clicked.connect(lambda: self._reprint_receipt(full_order))
         btn_box.addWidget(btn_reprint)
 
+        if full_order.get("status") != "returned":
+            btn_return = AnimatedButton("Return / Refund", self.right_card, variant="danger", icon_name="undo", icon_color="#FFFFFF", icon_size=14)
+            btn_return.setFixedHeight(38)
+            btn_return.clicked.connect(lambda: self._open_return_dialog(full_order))
+            btn_box.addWidget(btn_return)
+
         self.right_layout.addLayout(btn_box)
 
     def _preview_receipt(self, order: dict):
@@ -286,3 +293,8 @@ class QtSalesView(QWidget):
             QMessageBox.information(self, "Receipt Printed", "Receipt printed successfully.")
         else:
             QMessageBox.warning(self, "Print Notice", msg)
+
+    def _open_return_dialog(self, order: dict):
+        top_window = self.window()
+        self.dlg_return = QtReturnDialog(top_window, order, on_complete=self.refresh_orders)
+        self.dlg_return.show_animated()

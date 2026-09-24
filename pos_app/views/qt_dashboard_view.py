@@ -16,6 +16,7 @@ from pos_app.models.product_model import ProductModel
 from pos_app.models.expense_model import ExpenseModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.controllers.auth_controller import AuthController
+from pos_app.utils.icon_helper import get_icon
 
 
 class QtDashboardView(QWidget):
@@ -68,6 +69,12 @@ class QtDashboardView(QWidget):
             btn_add_prod.setToolTip("Go to Products Catalog")
             btn_add_prod.clicked.connect(lambda: self.navigate_to.emit("products"))
             greet_layout.addWidget(btn_add_prod)
+
+        btn_eod = AnimatedButton(" Close Day", greeting_card, variant="secondary", icon_name="sunset", icon_size=14)
+        btn_eod.setFixedHeight(42)
+        btn_eod.setToolTip("End of Day Cash Reconciliation")
+        btn_eod.clicked.connect(self._open_eod_dialog)
+        greet_layout.addWidget(btn_eod)
 
         layout.addWidget(greeting_card)
 
@@ -128,6 +135,12 @@ class QtDashboardView(QWidget):
         card_layout.addWidget(lbl_s)
 
         return card
+
+    def _open_eod_dialog(self):
+        from pos_app.views.dialogs.qt_eod_dialog import QtEODDialog
+        top_window = self.window()
+        self.dlg_eod = QtEODDialog(top_window)
+        self.dlg_eod.show_animated()
 
     def refresh_data(self):
         """Reloads metrics and table from database."""

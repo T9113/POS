@@ -131,7 +131,7 @@ class QtMainWindow(QMainWindow):
 
         # Brand / App Title
         brand_icon = QLabel(bar)
-        brand_icon.setPixmap(get_icon("lightning", color="#14B8A6", size=20).pixmap(20, 20))
+        brand_icon.setPixmap(get_icon("lightning", color="#3B82F6", size=20).pixmap(20, 20))
         brand_icon.setFixedSize(22, 22)
         layout.addWidget(brand_icon)
 

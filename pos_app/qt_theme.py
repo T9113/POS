@@ -1,6 +1,6 @@
 """
 Design system, theme tokens, QSS styling, and animated widgets for OnesDev POS.
-Premium Charcoal & Teal commercial theme with iOS-inspired physics.
+Unified Deep Royal Blue premium business theme with iOS-inspired physics.
 """
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QRect, QPoint, Signal, QSize
 from PySide6.QtWidgets import (
@@ -9,40 +9,41 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor, QFont, QCursor
 
-# Color Tokens (Premium Charcoal & Teal Business Palette)
 COLORS = {
     # App shell & surfaces
-    "bg_main": "#F8FAFB",
+    "bg_main": "#F1F5F9",
     "bg_surface": "#FFFFFF",
     "bg_surface_raised": "#FFFFFF",
     "bg_card": "#FFFFFF",
-    "bg_hover": "#F0F4F5",
-    "bg_input": "#F7F9FA",
+    "bg_hover": "#F1F5F9",
+    "bg_input": "#F8FAFC",
 
-    # Sidebar: Deep Charcoal
-    "bg_sidebar": "#111827",
-    "sidebar_text": "#9CA3AF",
-    "sidebar_hover": "#1F2937",
-    "sidebar_active_bg": "#1F2937",
+    # Sidebar: Deep Navy
+    "bg_sidebar": "#0F172A",
+    "sidebar_text": "#94A3B8",
+    "sidebar_hover": "#1E293B",
+    "sidebar_active_bg": "#1E293B",
     "sidebar_active_text": "#FFFFFF",
-    "sidebar_indicator": "#14B8A6",
+    "sidebar_indicator": "#3B82F6",
 
     # Borders & Dividers
     "border": "#E2E8F0",
     "border_subtle": "#F1F5F9",
-    "border_focus": "#0D9488",
+    "border_focus": "#2563EB",
 
     # Typography
-    "text_primary": "#111827",
-    "text_secondary": "#4B5563",
-    "text_muted": "#9CA3AF",
-    "text_on_dark": "#F9FAFB",
+    "text_primary": "#0F172A",
+    "text_secondary": "#475569",
+    "text_muted": "#94A3B8",
+    "text_on_dark": "#F8FAFC",
     "text_on_primary": "#FFFFFF",
 
-    # Accents & Semantic — Teal primary, professional business tone
-    "primary": "#0D9488",
-    "primary_hover": "#0F766E",
-    "primary_subtle": "#F0FDFA",
+    # Primary: Deep Royal Blue
+    "primary": "#2563EB",
+    "primary_hover": "#1D4ED8",
+    "primary_subtle": "#EFF6FF",
+
+    # Semantic
     "success": "#059669",
     "success_hover": "#047857",
     "success_subtle": "#ECFDF5",
@@ -60,7 +61,6 @@ COLORS = {
     "info_subtle": "#F0F9FF",
 }
 
-# Global QSS Stylesheet
 GLOBAL_QSS = f"""
 * {{
     font-family: 'Segoe UI', 'Segoe UI Emoji', 'Segoe UI Symbol', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
@@ -76,32 +76,27 @@ QDialog {{
     border-radius: 14px;
 }}
 
-/* Main background */
 #MainWindowContainer {{
     background-color: {COLORS["bg_main"]};
     border-radius: 14px;
 }}
 
-/* Title bar */
 #TitleBar {{
     background-color: {COLORS["bg_sidebar"]};
     border-top-left-radius: 14px;
     border-top-right-radius: 14px;
 }}
 
-/* Sidebar */
 #Sidebar {{
     background-color: {COLORS["bg_sidebar"]};
 }}
 
-/* Cards & Panels */
 .Card {{
     background-color: {COLORS["bg_surface"]};
     border: 1px solid {COLORS["border"]};
     border-radius: 10px;
 }}
 
-/* Input Fields */
 QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox {{
     background-color: {COLORS["bg_input"]};
     border: 1.5px solid {COLORS["border"]};
@@ -118,7 +113,6 @@ QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleS
     background-color: #FFFFFF;
 }}
 
-/* Form Validation Error State */
 .input-error, QLineEdit[error="true"], QSpinBox[error="true"], QDoubleSpinBox[error="true"], QComboBox[error="true"] {{
     border: 1.5px solid {COLORS["border_error"]} !important;
     background-color: {COLORS["bg_error"]} !important;
@@ -130,7 +124,6 @@ QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleS
     font-weight: 600;
 }}
 
-/* Combobox */
 QComboBox {{
     background-color: {COLORS["bg_surface"]};
     border: 1.5px solid {COLORS["border"]};
@@ -159,7 +152,6 @@ QComboBox QAbstractItemView {{
     padding: 4px;
 }}
 
-/* Tables */
 QTableWidget {{
     background-color: {COLORS["bg_surface"]};
     border: 1px solid {COLORS["border"]};
@@ -180,7 +172,6 @@ QHeaderView::section {{
     font-size: 12px;
 }}
 
-/* Scrollbars */
 QScrollBar:vertical {{
     background: transparent;
     width: 6px;
@@ -242,7 +233,6 @@ QScrollBar::corner {{
     border: none;
 }}
 
-/* Tab Widget */
 QTabWidget::pane {{
     border: 1px solid {COLORS["border"]};
     border-radius: 8px;
@@ -268,14 +258,62 @@ QTabBar::tab:selected {{
 QTabBar::tab:hover:!selected {{
     background-color: {COLORS["border"]};
 }}
+
+QCheckBox {{
+    spacing: 8px;
+    font-size: 13px;
+    color: {COLORS["text_secondary"]};
+}}
+
+QCheckBox::indicator {{
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1.5px solid {COLORS["border"]};
+    background: {COLORS["bg_input"]};
+}}
+
+QCheckBox::indicator:checked {{
+    background-color: {COLORS["primary"]};
+    border-color: {COLORS["primary"]};
+}}
+
+QToolTip {{
+    background-color: {COLORS["bg_sidebar"]};
+    color: {COLORS["text_on_dark"]};
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+}}
+
+QMessageBox {{
+    background-color: {COLORS["bg_surface"]};
+}}
+
+QMessageBox QLabel {{
+    color: {COLORS["text_primary"]};
+    font-size: 13px;
+}}
+
+QMessageBox QPushButton {{
+    background-color: {COLORS["primary"]};
+    color: #FFFFFF;
+    font-weight: 600;
+    font-size: 12px;
+    border-radius: 6px;
+    padding: 6px 20px;
+    min-width: 80px;
+    border: none;
+}}
+
+QMessageBox QPushButton:hover {{
+    background-color: {COLORS["primary_hover"]};
+}}
 """
 
 
 def apply_windows_native_corners(widget):
-    """
-    Applies Windows 11 Desktop Window Manager (DWM) native rounded corners (16px)
-    to any native window handle, preventing sharp/square corners.
-    """
     import sys
     if sys.platform == "win32":
         try:
@@ -295,18 +333,13 @@ def apply_windows_native_corners(widget):
 
 
 class AnimatedButton(QPushButton):
-    """
-    Button with iPhone-like scale-press micro-animation.
-    Shrinks slightly on click with OutQuad easing and snaps back on release.
-    Automatically formats icon buttons and short symbols with 0px padding so icons are never clipped.
-    """
+    """Button with scale-press micro-animation and variant-based styling."""
     def __init__(self, text="", parent=None, variant="primary", is_icon_only=False, icon_name=None, icon_color=None, icon_size=16):
         super().__init__(text, parent)
         self.variant = variant
         self.is_icon_only = is_icon_only or (len(text.strip()) == 0 and icon_name is not None) or (len(text.strip()) <= 3 and icon_name is None)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
-        # Setup geometry animation
         self.anim = QPropertyAnimation(self, b"geometry")
         self.anim.setDuration(90)
         self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
@@ -435,7 +468,7 @@ class AnimatedButton(QPushButton):
 
 
 class DropShadowCard(QFrame):
-    """Clean surface card with rounded corners and ambient soft drop shadow."""
+    """Surface card with rounded corners and ambient drop shadow."""
     def __init__(self, parent=None, corner_radius=12, blur_radius=18, offset_y=4, opacity=25):
         super().__init__(parent)
         self.setObjectName("DropShadowCard")
@@ -454,11 +487,7 @@ class DropShadowCard(QFrame):
 
 
 class SmoothModalOverlay(QWidget):
-    """
-    iPhone-style backdrop modal overlay.
-    Dims the background with transparent slate, and scales/bounces the central card
-    into place using QEasingCurve.Type.OutBack.
-    """
+    """Backdrop modal overlay with scale/bounce animation."""
     closed = Signal()
 
     def __init__(self, parent, target_width=500, target_height=420):
@@ -467,15 +496,12 @@ class SmoothModalOverlay(QWidget):
         self.target_height = target_height
         self.hide()
 
-        # Fill entire parent window
         self.resize(parent.size())
 
-        # Semi-transparent dimmed backdrop
         self.backdrop = QFrame(self)
         self.backdrop.setGeometry(0, 0, parent.width(), parent.height())
         self.backdrop.setStyleSheet("background-color: rgba(15, 23, 42, 140);")
 
-        # Modal Card Container
         self.card = QFrame(self)
         self.card.setObjectName("ModalCard")
         self.card.setStyleSheet(f"""
@@ -486,18 +512,15 @@ class SmoothModalOverlay(QWidget):
             }}
         """)
 
-        # Soft shadow for the modal card
         card_shadow = QGraphicsDropShadowEffect(self.card)
         card_shadow.setBlurRadius(32)
         card_shadow.setColor(QColor(0, 0, 0, 80))
         card_shadow.setOffset(0, 10)
         self.card.setGraphicsEffect(card_shadow)
 
-        # Card content layout
         self.card_layout = QVBoxLayout(self.card)
         self.card_layout.setContentsMargins(24, 20, 24, 20)
 
-        # Animation engine
         self.anim = QPropertyAnimation(self.card, b"geometry")
         self.anim.setDuration(340)
 
@@ -512,11 +535,9 @@ class SmoothModalOverlay(QWidget):
         self.show()
         self.raise_()
 
-        # Center coordinates
         cx = (self.width() - self.target_width) // 2
         cy = (self.height() - self.target_height) // 2
 
-        # Animate from small center point to full size with elastic OutBack curve
         self.anim.stop()
         self.anim.setDuration(340)
         self.anim.setStartValue(QRect(cx + self.target_width // 2, cy + self.target_height // 2, 0, 0))
