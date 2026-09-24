@@ -10,8 +10,9 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QStackedWidget, QFrame, QMessageBox, QGraphicsDropShadowEffect
 )
-from PySide6.QtGui import QColor, QFont, QCursor, QIcon
+from PySide6.QtGui import QColor, QFont, QCursor, QIcon, QShortcut, QKeySequence
 
+from pos_app.config import APP_NAME, APP_VERSION
 from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, apply_windows_native_corners
 from pos_app.utils.icon_helper import get_icon
 from pos_app.controllers.auth_controller import AuthController
@@ -51,6 +52,7 @@ class QtMainWindow(QMainWindow):
         # 2. Build UI Shell
         self._build_ui()
         self._setup_clock()
+        self._setup_shortcuts()
         self.update_status_ticker()
 
         # Start on POS screen (or Dashboard depending on role)
@@ -100,7 +102,8 @@ class QtMainWindow(QMainWindow):
 
         # Central Screen Stack
         self.screen_stack = QStackedWidget(work_area)
-        self.screen_stack.setStyleSheet(f"background-color: {COLORS['bg_main']};")
+        self.screen_stack.setObjectName("ScreenStack")
+        self.screen_stack.setStyleSheet(f"QStackedWidget#ScreenStack {{ background-color: {COLORS['bg_main']}; }}")
         self._init_screens()
         work_layout.addWidget(self.screen_stack, stretch=1)
 
@@ -177,7 +180,8 @@ class QtMainWindow(QMainWindow):
         role_bg = COLORS["primary"] if u_role == "Admin" else COLORS["success"]
 
         user_badge = QFrame(bar)
-        user_badge.setStyleSheet("background-color: #1F2937; border-radius: 14px; padding: 2px 8px;")
+        user_badge.setObjectName("UserBadge")
+        user_badge.setStyleSheet(f"QFrame#UserBadge {{ background-color: {COLORS['sidebar_hover']}; border-radius: 14px; }}")
         ub_l = QHBoxLayout(user_badge)
         ub_l.setContentsMargins(8, 2, 8, 2)
         ub_l.setSpacing(6)
@@ -266,7 +270,7 @@ class QtMainWindow(QMainWindow):
             btn.setProperty("nav_key", key)
             btn.setProperty("icon_key", icon_key)
             btn.setProperty("nav_label", label)
-            btn.setText(f"  {label}")
+            btn.setText(f"  {label.replace('&', '&&')}")
             btn.setIcon(get_icon(icon_key, color=COLORS["sidebar_text"], size=18))
             btn.setIconSize(QSize(18, 18))
             btn.setStyleSheet(f"""
@@ -397,7 +401,7 @@ class QtMainWindow(QMainWindow):
 
         layout.addSpacing(16)
 
-        lbl_ver = QLabel("OnesDev POS v2.0", bar)
+        lbl_ver = QLabel(f"{APP_NAME} v{APP_VERSION}", bar)
         lbl_ver.setStyleSheet(f"font-size: 11px; color: {COLORS['text_muted']};")
         layout.addWidget(lbl_ver)
 
@@ -464,14 +468,11 @@ class QtMainWindow(QMainWindow):
         if key in self.screen_instances:
             screen = self.screen_instances[key]
             self.screen_stack.setCurrentWidget(screen)
-            if hasattr(screen, "refresh_data"):
-                screen.refresh_data()
-            elif hasattr(screen, "refresh_orders"):
-                screen.refresh_orders()
-            elif hasattr(screen, "refresh_customers"):
-                screen.refresh_customers()
-            elif hasattr(screen, "refresh_expenses"):
-                screen.refresh_expenses()
+            for refresh_name in ("refresh_data", "refresh_catalog", "load_products",
+                                 "refresh_orders", "refresh_customers", "refresh_expenses"):
+                if hasattr(screen, refresh_name):
+                    getattr(screen, refresh_name)()
+                    break
 
         self.update_status_ticker()
 
@@ -487,7 +488,7 @@ class QtMainWindow(QMainWindow):
                 btn.setToolTip(label)
                 btn.setStyleSheet(btn.styleSheet() + "text-align: center; padding-left: 0px;")
             else:
-                btn.setText(f"  {label}")
+                btn.setText(f"  {label.replace('&', '&&')}")
                 btn.setToolTip("")
                 btn.setStyleSheet(btn.styleSheet() + "text-align: left; padding-left: 14px;")
 
@@ -538,18 +539,23 @@ class QtMainWindow(QMainWindow):
         self.drag_position = QPoint()
         event.accept()
 
-    # Global Key shortcuts
-    def keyPressEvent(self, event):
-        key = event.key()
-        if key == Qt.Key.Key_F1:
+    def _setup_shortcuts(self):
+        bindings = {
+            "F1": lambda: self.navigate_to("pos"),
+            "F2": self._focus_pos_search,
+            "F12": self._shortcut_checkout,
+        }
+        for seq, handler in bindings.items():
+            sc = QShortcut(QKeySequence(seq), self)
+            sc.setContext(Qt.ShortcutContext.ApplicationShortcut)
+            sc.activated.connect(handler)
+
+    def _focus_pos_search(self):
+        self.navigate_to("pos")
+        self.pos_view.txt_search.setFocus()
+        self.pos_view.txt_search.selectAll()
+
+    def _shortcut_checkout(self):
+        if self.screen_stack.currentWidget() is not self.pos_view:
             self.navigate_to("pos")
-        elif key == Qt.Key.Key_F2:
-            self.navigate_to("pos")
-            if hasattr(self.pos_view, "txt_search"):
-                self.pos_view.txt_search.setFocus()
-        elif key == Qt.Key.Key_F5:
-            self.navigate_to("pos")
-            if hasattr(self.pos_view, "_on_checkout"):
-                self.pos_view._on_checkout()
-        else:
-            super().keyPressEvent(event)
+        self.pos_view._open_payment_dialog()

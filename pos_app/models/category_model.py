@@ -11,7 +11,23 @@ class CategoryModel:
                 cursor.execute("SELECT * FROM categories ORDER BY sort_order ASC, name ASC")
             return [dict(row) for row in cursor.fetchall()]
 
-    get_all = list_all
+    @staticmethod
+    def get_all():
+        return CategoryModel.list_all(active_only=True)
+
+    @staticmethod
+    def get_all_with_counts():
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT c.*, COUNT(p.id) AS product_count
+                FROM categories c
+                LEFT JOIN products p ON p.category_id = c.id AND p.is_active = 1
+                WHERE c.is_active = 1
+                GROUP BY c.id
+                ORDER BY c.sort_order ASC, c.name ASC
+            """)
+            return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
     def get_by_id(category_id: int):
@@ -29,6 +45,7 @@ class CategoryModel:
             cursor.execute("SELECT id FROM categories WHERE LOWER(name) = LOWER(?)", (name,))
             row = cursor.fetchone()
             if row:
+                cursor.execute("UPDATE categories SET is_active = 1 WHERE id = ?", (row["id"],))
                 return row["id"]
             cursor.execute("INSERT INTO categories (name, sort_order, is_active) VALUES (?, 0, 1)", (name,))
             return cursor.lastrowid

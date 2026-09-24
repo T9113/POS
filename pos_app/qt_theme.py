@@ -61,6 +61,34 @@ COLORS = {
     "info_subtle": "#F0F9FF",
 }
 
+ORDER_STATUS_STYLES = {
+    "completed": ("Completed", "success"),
+    "partially_returned": ("Part Returned", "warning"),
+    "returned": ("Returned", "danger"),
+    "cancelled": ("Cancelled", "text_muted"),
+}
+
+
+def clear_layout(layout):
+    """Removes and destroys every widget and nested layout inside a layout, hiding them immediately."""
+    while layout.count():
+        item = layout.takeAt(0)
+        widget = item.widget()
+        if widget is not None:
+            widget.hide()
+            widget.setParent(None)
+            widget.deleteLater()
+        elif item.layout() is not None:
+            clear_layout(item.layout())
+            item.layout().deleteLater()
+
+
+def order_status_display(status: str):
+    """Returns (label, hex color) for an order status."""
+    label, color_key = ORDER_STATUS_STYLES.get((status or "completed").lower(), ((status or "").title(), "text_secondary"))
+    return label, COLORS[color_key]
+
+
 GLOBAL_QSS = f"""
 * {{
     font-family: 'Segoe UI', 'Segoe UI Emoji', 'Segoe UI Symbol', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
@@ -111,6 +139,11 @@ QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox {{
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
     border: 1.5px solid {COLORS["primary"]};
     background-color: #FFFFFF;
+}}
+
+QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {{
+    width: 0px;
+    border: none;
 }}
 
 .input-error, QLineEdit[error="true"], QSpinBox[error="true"], QDoubleSpinBox[error="true"], QComboBox[error="true"] {{
@@ -450,7 +483,14 @@ class AnimatedButton(QPushButton):
                 }}
             """
         }
-        self.setStyleSheet(styles.get(self.variant, styles["primary"]))
+        disabled = f"""
+            QPushButton:disabled {{
+                background-color: {COLORS["bg_hover"]};
+                color: {COLORS["text_muted"]};
+                border: 1px dashed {COLORS["border"]};
+            }}
+        """
+        self.setStyleSheet(styles.get(self.variant, styles["primary"]) + disabled)
 
     def mousePressEvent(self, event):
         g = self.geometry()
@@ -524,35 +564,61 @@ class SmoothModalOverlay(QWidget):
         self.anim = QPropertyAnimation(self.card, b"geometry")
         self.anim.setDuration(340)
 
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        parent.installEventFilter(self)
+
     def set_content_widget(self, widget: QWidget):
         self.card_layout.addWidget(widget)
+
+    def eventFilter(self, obj, event):
+        if obj is self.parent() and event.type() == event.Type.Resize and self.isVisible():
+            self._fit_to_parent()
+            if self.anim.state() != QPropertyAnimation.State.Running:
+                self.card.setGeometry(self._target_rect())
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.hide_animated()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def _fit_to_parent(self):
+        self.resize(self.parent().size())
+        self.backdrop.setGeometry(0, 0, self.parent().width(), self.parent().height())
+
+    def _target_rect(self) -> QRect:
+        w = min(self.target_width, max(320, self.width() - 32))
+        h = min(self.target_height, max(240, self.height() - 32))
+        return QRect((self.width() - w) // 2, (self.height() - h) // 2, w, h)
 
     def show_animated(self):
         if not self.parent():
             return
-        self.resize(self.parent().size())
-        self.backdrop.setGeometry(0, 0, self.parent().width(), self.parent().height())
+        self._fit_to_parent()
         self.show()
         self.raise_()
+        self.setFocus()
 
-        cx = (self.width() - self.target_width) // 2
-        cy = (self.height() - self.target_height) // 2
-
+        target = self._target_rect()
         self.anim.stop()
+        try:
+            self.anim.finished.disconnect(self._on_hide_finished)
+        except (RuntimeError, TypeError):
+            pass
         self.anim.setDuration(340)
-        self.anim.setStartValue(QRect(cx + self.target_width // 2, cy + self.target_height // 2, 0, 0))
-        self.anim.setEndValue(QRect(cx, cy, self.target_width, self.target_height))
+        self.anim.setStartValue(QRect(target.center(), QSize(0, 0)))
+        self.anim.setEndValue(target)
         self.anim.setEasingCurve(QEasingCurve.Type.OutBack)
         self.anim.start()
 
     def hide_animated(self):
-        cx = (self.width() - self.target_width) // 2
-        cy = (self.height() - self.target_height) // 2
-
+        target = self._target_rect()
         self.anim.stop()
         self.anim.setDuration(220)
-        self.anim.setStartValue(QRect(cx, cy, self.target_width, self.target_height))
-        self.anim.setEndValue(QRect(cx + self.target_width // 2, cy + self.target_height // 2, 0, 0))
+        self.anim.setStartValue(self.card.geometry() if self.card.width() else target)
+        self.anim.setEndValue(QRect(target.center(), QSize(0, 0)))
         self.anim.setEasingCurve(QEasingCurve.Type.InQuad)
         self.anim.finished.connect(self._on_hide_finished)
         self.anim.start()
@@ -560,7 +626,7 @@ class SmoothModalOverlay(QWidget):
     def _on_hide_finished(self):
         try:
             self.anim.finished.disconnect(self._on_hide_finished)
-        except Exception:
+        except (RuntimeError, TypeError):
             pass
         self.hide()
         self.closed.emit()

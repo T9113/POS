@@ -2,8 +2,8 @@
 PySide6 Hold Orders Dialog for OnesDev POS.
 Displays parked/held orders and allows recall or deletion.
 """
-import json
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget,
     QTableWidgetItem, QHeaderView, QMessageBox, QPushButton
@@ -56,6 +56,8 @@ class QtHoldOrdersDialog(SmoothModalOverlay):
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(["#", "Customer", "Items", "Total", "Held At"])
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        for col in (0, 2, 3, 4):
+            self.table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         self.table.verticalHeader().setVisible(False)
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -115,20 +117,24 @@ class QtHoldOrdersDialog(SmoothModalOverlay):
             items = cart.get("items", [])
             self.table.setItem(r, 2, QTableWidgetItem(f"{len(items)} item(s)"))
 
-            total = sum(float(i.get("total", 0)) for i in items)
+            total = sum(float(i.get("price", 0)) * float(i.get("quantity", 1)) for i in items)
             total_item = QTableWidgetItem(f"{self.currency} {total:,.2f}")
             total_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self.table.setItem(r, 3, total_item)
 
-            held_at = o.get("created_at", "")[:16]
+            held_at = (o.get("created_at") or "")[5:16]
             self.table.setItem(r, 4, QTableWidgetItem(held_at))
 
+        self.table.clearSpans()
         if not orders:
             self.table.setRowCount(1)
-            empty = QTableWidgetItem("No held orders found")
+            empty = QTableWidgetItem("No held orders. Use Hold on the POS screen to park a sale.")
             empty.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty.setForeground(QColor(COLORS["text_muted"]))
             self.table.setItem(0, 0, empty)
             self.table.setSpan(0, 0, 1, 5)
+        self.btn_recall.setEnabled(bool(orders))
+        self.btn_delete.setEnabled(bool(orders))
 
     def _get_selected_order(self):
         rows = self.table.selectedIndexes()
@@ -145,10 +151,10 @@ class QtHoldOrdersDialog(SmoothModalOverlay):
         if not order:
             return
         cart_data = order.get("cart_data", {})
+        if self.on_recall and self.on_recall(cart_data, order.get("customer_id")) is False:
+            return
         OrderModel.delete_held_order(order["id"])
         self.order_recalled.emit(cart_data)
-        if self.on_recall:
-            self.on_recall(cart_data)
         self.hide_animated()
 
     def _delete_selected(self):

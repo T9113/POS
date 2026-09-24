@@ -21,7 +21,7 @@ class QtEODDialog(SmoothModalOverlay):
     eod_completed = Signal()
 
     def __init__(self, parent, on_complete=None):
-        super().__init__(parent, target_width=500, target_height=520)
+        super().__init__(parent, target_width=520, target_height=620)
         self.on_complete = on_complete
         self.currency = SettingsModel.get("currency_symbol", "Rs")
         self.eod_data = EODModel.get_eod_calculation_for_today()
@@ -55,40 +55,59 @@ class QtEODDialog(SmoothModalOverlay):
 
         # Summary Card
         summary_card = QFrame(content)
+        summary_card.setObjectName("EodSummary")
         summary_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#EodSummary {{
                 background-color: {COLORS['primary_subtle']};
                 border: 1px solid {COLORS['border']};
                 border-radius: 10px;
-                padding: 12px;
             }}
         """)
         s_layout = QVBoxLayout(summary_card)
-        s_layout.setSpacing(8)
+        s_layout.setContentsMargins(14, 12, 14, 12)
+        s_layout.setSpacing(10)
 
         lbl_date = QLabel(f"Report Date: <b>{self.eod_data['date']}</b>", summary_card)
         lbl_date.setStyleSheet(f"font-size: 13px; color: {COLORS['text_secondary']}; background: transparent; border: none;")
         s_layout.addWidget(lbl_date)
 
         metrics_row = QHBoxLayout()
-        self._add_metric(metrics_row, summary_card, "Total Orders", str(self.eod_data["total_orders"]))
-        self._add_metric(metrics_row, summary_card, "Total Sales", f"{self.currency} {self.eod_data['total_sales']:,.2f}")
-        self._add_metric(metrics_row, summary_card, "Cash Refunds", f"{self.currency} {self.eod_data['cash_refunds']:,.2f}")
+        self._add_metric(metrics_row, summary_card, "Orders", str(self.eod_data["total_orders"]))
+        self._add_metric(metrics_row, summary_card, "All Sales", f"{self.currency} {self.eod_data['total_sales']:,.2f}")
+        self._add_metric(metrics_row, summary_card, "Refunds", f"{self.currency} {self.eod_data['total_refunds']:,.2f}")
         s_layout.addLayout(metrics_row)
+
+        cash_row = QHBoxLayout()
+        self._add_metric(cash_row, summary_card, "+ Cash Sales", f"{self.currency} {self.eod_data['cash_sales']:,.2f}")
+        self._add_metric(cash_row, summary_card, "+ Khata Collected", f"{self.currency} {self.eod_data['khata_collections']:,.2f}")
+        self._add_metric(cash_row, summary_card, "− Cash Refunds", f"{self.currency} {self.eod_data['cash_refunds']:,.2f}")
+        s_layout.addLayout(cash_row)
 
         layout.addWidget(summary_card)
 
+        existing = EODModel.get_today_report()
+        if existing:
+            lbl_prev = QLabel(
+                f"Day already closed at {existing['created_at'][11:16]} "
+                f"(counted {self.currency} {existing['actual_cash']:,.2f}). Saving again adds a new closing record.",
+                content
+            )
+            lbl_prev.setWordWrap(True)
+            lbl_prev.setStyleSheet(f"font-size: 12px; color: {COLORS['warning']}; background: {COLORS['warning_subtle']}; padding: 6px 10px; border-radius: 6px;")
+            layout.addWidget(lbl_prev)
+
         # Expected cash
         exp_frame = QFrame(content)
+        exp_frame.setObjectName("EodExpected")
         exp_frame.setStyleSheet(f"""
-            QFrame {{
+            QFrame#EodExpected {{
                 background-color: {COLORS['success_subtle']};
                 border: 1px solid {COLORS['border']};
                 border-radius: 8px;
-                padding: 10px;
             }}
         """)
         exp_l = QHBoxLayout(exp_frame)
+        exp_l.setContentsMargins(14, 10, 14, 10)
         lbl_exp_title = QLabel("Expected Cash in Drawer:", exp_frame)
         lbl_exp_title.setStyleSheet(f"font-size: 14px; font-weight: 600; color: {COLORS['text_primary']}; background: transparent; border: none;")
         exp_l.addWidget(lbl_exp_title)
@@ -104,16 +123,15 @@ class QtEODDialog(SmoothModalOverlay):
         layout.addWidget(lbl_actual)
 
         self.txt_actual = QLineEdit(content)
-        self.txt_actual.setPlaceholderText(f"Enter the actual cash amount in the drawer")
+        self.txt_actual.setPlaceholderText("Count the drawer and enter the total")
         self.txt_actual.setFixedHeight(42)
-        self.txt_actual.setStyleSheet(f"font-size: 16px; font-weight: bold; padding: 0 12px;")
-        self.txt_actual.setText(f"{self.eod_data['expected_cash']:.2f}")
+        self.txt_actual.setStyleSheet("font-size: 16px; font-weight: bold; padding: 0 12px;")
         self.txt_actual.textChanged.connect(self._update_difference)
         layout.addWidget(self.txt_actual)
 
         # Difference display
-        self.lbl_diff = QLabel(f"Difference: {self.currency} 0.00", content)
-        self.lbl_diff.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {COLORS['success']};")
+        self.lbl_diff = QLabel("Enter the counted amount to see the difference", content)
+        self.lbl_diff.setStyleSheet(f"font-size: 13px; color: {COLORS['text_muted']};")
         self.lbl_diff.setAlignment(Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.lbl_diff)
 
@@ -129,7 +147,7 @@ class QtEODDialog(SmoothModalOverlay):
         layout.addWidget(self.txt_notes)
 
         # Confirm
-        self.btn_close_day = AnimatedButton("Close Day & Save Report", content, variant="primary", icon_name="check", icon_color="#FFFFFF", icon_size=16)
+        self.btn_close_day = AnimatedButton("Close Day && Save Report", content, variant="primary", icon_name="check", icon_color="#FFFFFF", icon_size=16)
         self.btn_close_day.setFixedHeight(44)
         self.btn_close_day.clicked.connect(self._save_eod)
         layout.addWidget(self.btn_close_day)
@@ -150,10 +168,13 @@ class QtEODDialog(SmoothModalOverlay):
         row_layout.addWidget(w)
 
     def _update_difference(self):
+        self.txt_actual.setStyleSheet("font-size: 16px; font-weight: bold; padding: 0 12px;")
         try:
-            actual = float(self.txt_actual.text() or 0)
+            actual = float(self.txt_actual.text().replace(",", ""))
         except ValueError:
-            actual = 0
+            self.lbl_diff.setText("Enter the counted amount to see the difference")
+            self.lbl_diff.setStyleSheet(f"font-size: 13px; color: {COLORS['text_muted']};")
+            return
         diff = actual - self.eod_data["expected_cash"]
         if abs(diff) < 0.01:
             color = COLORS["success"]
@@ -169,9 +190,14 @@ class QtEODDialog(SmoothModalOverlay):
 
     def _save_eod(self):
         try:
-            actual = float(self.txt_actual.text() or 0)
+            actual = float(self.txt_actual.text().replace(",", ""))
+            if actual < 0:
+                raise ValueError
         except ValueError:
-            QMessageBox.warning(self, "Invalid Amount", "Please enter a valid cash amount.")
+            self.txt_actual.setStyleSheet(f"font-size: 16px; font-weight: bold; padding: 0 12px; border: 1.5px solid {COLORS['border_error']}; background-color: {COLORS['bg_error']};")
+            self.txt_actual.setFocus()
+            self.lbl_diff.setText("Count the cash in the drawer and enter the amount before closing.")
+            self.lbl_diff.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {COLORS['danger']};")
             return
 
         notes = self.txt_notes.toPlainText().strip()

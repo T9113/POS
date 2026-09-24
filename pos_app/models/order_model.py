@@ -315,29 +315,108 @@ class OrderModel:
 
     # Returns / Refunds
     @staticmethod
+    def get_returned_quantities(order_id: int) -> dict:
+        """Returns {order_item_key: qty_already_returned} where key is product_id (or name for deleted products)."""
+        returned = {}
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT items_json FROM returns WHERE order_id = ?", (order_id,))
+            for row in cursor.fetchall():
+                for it in json.loads(row["items_json"] or "[]"):
+                    key = it.get("product_id") or it.get("product_name")
+                    returned[key] = returned.get(key, 0.0) + float(it.get("quantity", 0))
+        return returned
+
+    @staticmethod
     def process_return(order_id: int, user_id: int, returned_items: list, total_refund: float, reason: str):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        order = OrderModel.get_order_by_id(order_id)
+        if not order:
+            return None
+
+        # A Khata sale is refunded against the customer's outstanding balance first; the rest is cash.
+        refund_method = "cash"
+        khata_credit = 0.0
+        if order.get("customer_id") and order.get("payment_method") in ("credit", "split"):
+            cust = CustomerModel.get_by_id(order["customer_id"])
+            outstanding = max(0.0, float(cust.get("balance", 0.0))) if cust else 0.0
+            khata_credit = min(total_refund, outstanding)
+            if khata_credit > 0:
+                refund_method = "khata" if khata_credit >= total_refund else "mixed"
+
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO returns (order_id, user_id, items_json, total_refund, reason, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (order_id, user_id, json.dumps(returned_items), total_refund, reason, now))
+                INSERT INTO returns (order_id, user_id, items_json, total_refund, reason, refund_method, cash_amount, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (order_id, user_id, json.dumps(returned_items), total_refund, reason, refund_method,
+                  round(total_refund - khata_credit, 2), now))
             return_id = cursor.lastrowid
 
-            # Restock items
             for item in returned_items:
                 pid = item.get("product_id")
                 qty = float(item.get("quantity", 0))
                 if pid and qty > 0:
                     cursor.execute("""
-                        UPDATE products 
+                        UPDATE products
                         SET current_stock = current_stock + ?, updated_at = ?
                         WHERE id = ?
                     """, (qty, now, pid))
 
-            cursor.execute("UPDATE orders SET status = 'returned' WHERE id = ?", (order_id,))
-            return return_id
+            if khata_credit > 0:
+                cursor.execute("UPDATE customers SET balance = balance - ? WHERE id = ?", (khata_credit, order["customer_id"]))
+
+        sold = {}
+        for it in order.get("items", []):
+            key = it.get("product_id") or it.get("product_name")
+            sold[key] = sold.get(key, 0.0) + float(it.get("quantity", 0))
+        returned = OrderModel.get_returned_quantities(order_id)
+        fully_returned = all(returned.get(k, 0.0) >= q - 1e-9 for k, q in sold.items())
+        new_status = "returned" if fully_returned else "partially_returned"
+        with get_db() as conn:
+            conn.execute("UPDATE orders SET status = ? WHERE id = ?", (new_status, order_id))
+        return return_id
+
+    @staticmethod
+    def get_order_refund_total(order_id: int) -> float:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COALESCE(SUM(total_refund), 0.0) FROM returns WHERE order_id = ?", (order_id,))
+            return float(cursor.fetchone()[0])
+
+    @staticmethod
+    def get_refund_totals(date_from: str = None, date_to: str = None) -> dict:
+        """Refund amount, cash-out portion, and cost of goods returned within a date range."""
+        conditions, params = [], []
+        if date_from:
+            conditions.append("date(r.created_at) >= date(?)")
+            params.append(date_from)
+        if date_to:
+            conditions.append("date(r.created_at) <= date(?)")
+            params.append(date_to)
+        where = " WHERE " + " AND ".join(conditions) if conditions else ""
+        totals = {"total_refunds": 0.0, "cash_refunds": 0.0, "refund_cost": 0.0, "return_count": 0}
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT r.* FROM returns r {where}", params)
+            rows = cursor.fetchall()
+            for r in rows:
+                refund = float(r["total_refund"] or 0.0)
+                totals["total_refunds"] += refund
+                totals["return_count"] += 1
+                cash_amount = r["cash_amount"]
+                totals["cash_refunds"] += refund if cash_amount is None else float(cash_amount)
+                for it in json.loads(r["items_json"] or "[]"):
+                    cost = it.get("cost_price")
+                    if cost is None and it.get("product_id"):
+                        cursor.execute(
+                            "SELECT cost_price FROM order_items WHERE order_id = ? AND product_id = ? LIMIT 1",
+                            (r["order_id"], it["product_id"])
+                        )
+                        c_row = cursor.fetchone()
+                        cost = c_row["cost_price"] if c_row else 0.0
+                    totals["refund_cost"] += float(cost or 0.0) * float(it.get("quantity", 0))
+        return totals
 
     # Today Dashboard Metrics
     @staticmethod
@@ -379,11 +458,16 @@ class OrderModel:
             """, (today_date,))
             recent_orders = [dict(row) for row in cursor.fetchall()]
 
-            return {
-                "total_orders": sales_row["total_orders"] if sales_row else 0,
-                "total_sales": sales_row["total_sales"] if sales_row else 0.0,
-                "avg_order_value": sales_row["avg_order_value"] if sales_row else 0.0,
-                "gross_profit": sales_row["gross_profit"] if sales_row else 0.0,
-                "top_products": top_products,
-                "recent_orders": recent_orders
-            }
+        refunds = OrderModel.get_refund_totals(today_date, today_date)
+        gross_sales = sales_row["total_sales"] if sales_row else 0.0
+        gross_profit = sales_row["gross_profit"] if sales_row else 0.0
+        return {
+            "total_orders": sales_row["total_orders"] if sales_row else 0,
+            "total_sales": round(gross_sales - refunds["total_refunds"], 2),
+            "gross_sales": gross_sales,
+            "total_refunds": refunds["total_refunds"],
+            "avg_order_value": sales_row["avg_order_value"] if sales_row else 0.0,
+            "gross_profit": round(gross_profit - (refunds["total_refunds"] - refunds["refund_cost"]), 2),
+            "top_products": top_products,
+            "recent_orders": recent_orders
+        }

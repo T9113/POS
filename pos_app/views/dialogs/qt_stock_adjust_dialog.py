@@ -21,7 +21,7 @@ class QtStockAdjustDialog(SmoothModalOverlay):
     stock_adjusted = Signal()
 
     def __init__(self, parent, product: dict = None, on_complete=None):
-        super().__init__(parent, target_width=460, target_height=420)
+        super().__init__(parent, target_width=480, target_height=600)
         self.product = product
         self.on_complete = on_complete
         self._build_dialog_ui()
@@ -62,12 +62,12 @@ class QtStockAdjustDialog(SmoothModalOverlay):
             self.cmb_product.setFixedHeight(38)
             self.products = ProductModel.list_all()
             for p in self.products:
-                self.cmb_product.addItem(f"{p['name']} (Stock: {p.get('current_stock', 0)})", p["id"])
+                self.cmb_product.addItem(f"{p['name']}  (in stock: {float(p.get('current_stock', 0)):g})", p["id"])
             self.cmb_product.currentIndexChanged.connect(self._update_current_stock)
             layout.addWidget(self.cmb_product)
         else:
             lbl_prod_info = QLabel(
-                f"Product: <b>{self.product['name']}</b>  |  Current Stock: <b>{self.product.get('current_stock', 0)}</b>",
+                f"Product: <b>{self.product['name']}</b>  |  Current Stock: <b>{float(self.product.get('current_stock', 0)):g}</b>",
                 content
             )
             lbl_prod_info.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 13px; background: {COLORS['bg_hover']}; padding: 8px 10px; border-radius: 6px;")

@@ -4,16 +4,18 @@ Customer database with credit/Khata balance tracking, search,
 purchase history, and Excel export.
 """
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
     QFrame, QSplitter, QInputDialog
 )
 
-from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, clear_layout
 from pos_app.models.customer_model import CustomerModel
 from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
+from pos_app.controllers.auth_controller import AuthController
 from pos_app.views.dialogs.qt_customer_dialog import QtCustomerDialog
 from pos_app.utils.exporter import Exporter
 from pos_app.utils.icon_helper import get_icon
@@ -83,6 +85,8 @@ class QtCustomersView(QWidget):
         self.table_cust.setColumnCount(4)
         self.table_cust.setHorizontalHeaderLabels(["Name", "Phone", "Khata Balance", "Total Orders"])
         self.table_cust.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for col in (1, 2, 3):
+            self.table_cust.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         self.table_cust.verticalHeader().setVisible(False)
         self.table_cust.setAlternatingRowColors(True)
         self.table_cust.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -123,10 +127,7 @@ class QtCustomersView(QWidget):
         main_layout.addWidget(splitter, stretch=1)
 
     def _render_empty_profile(self):
-        while self.right_layout.count():
-            item = self.right_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.right_layout)
 
         lbl_empty = QLabel("Select any customer to view account balance, notes, and purchase history.", self.right_card)
         lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -148,7 +149,7 @@ class QtCustomersView(QWidget):
             bal_item = QTableWidgetItem(f"{self.currency} {bal:,.2f}")
             bal_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             if bal > 0:
-                bal_item.setForeground(Qt.GlobalColor.darkRed)
+                bal_item.setForeground(QColor(COLORS["danger"]))
             self.table_cust.setItem(r, 2, bal_item)
 
             ord_cnt = c.get("total_orders", 0)
@@ -166,10 +167,7 @@ class QtCustomersView(QWidget):
             self._render_customer_profile(customer)
 
     def _render_customer_profile(self, customer: dict):
-        while self.right_layout.count():
-            item = self.right_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.right_layout)
 
         # Customer Header Profile
         lbl_name = QLabel(customer.get("name", ""), self.right_card)
@@ -293,7 +291,8 @@ class QtCustomersView(QWidget):
             cur_bal, 0.01, cur_bal, 2
         )
         if ok and amt > 0:
-            CustomerModel.pay_due(customer["id"], amt)
+            user = AuthController.get_current_user()
+            CustomerModel.pay_due(customer["id"], amt, user_id=user["id"] if user else None, note="Khata collection")
             QMessageBox.information(
                 self, "Payment Received",
                 f"Successfully recorded payment of {self.currency} {amt:,.2f} for {customer.get('name')}."

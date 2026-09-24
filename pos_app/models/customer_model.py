@@ -13,18 +13,23 @@ class CustomerModel:
     def list_all(search_query: str = "", limit: int = 100, offset: int = 0, search: str = None):
         if search is not None:
             search_query = search
+        select = """
+            SELECT c.*,
+                   (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.status != 'cancelled') AS total_orders,
+                   (SELECT COALESCE(SUM(o.total), 0.0) FROM orders o WHERE o.customer_id = c.id AND o.status != 'cancelled') AS total_spent
+            FROM customers c
+        """
         with get_db() as conn:
             cursor = conn.cursor()
             if search_query and search_query.strip():
                 q = f"%{search_query.strip()}%"
-                cursor.execute("""
-                    SELECT * FROM customers 
-                    WHERE name LIKE ? OR phone LIKE ? OR email LIKE ?
-                    ORDER BY name ASC
+                cursor.execute(select + """
+                    WHERE c.name LIKE ? OR c.phone LIKE ? OR c.email LIKE ?
+                    ORDER BY c.name ASC
                     LIMIT ? OFFSET ?
                 """, (q, q, q, limit, offset))
             else:
-                cursor.execute("SELECT * FROM customers ORDER BY name ASC LIMIT ? OFFSET ?", (limit, offset))
+                cursor.execute(select + " ORDER BY c.name ASC LIMIT ? OFFSET ?", (limit, offset))
             return [dict(row) for row in cursor.fetchall()]
 
     get_all = list_all
@@ -81,12 +86,33 @@ class CustomerModel:
             return cursor.rowcount > 0
 
     @staticmethod
-    def pay_due(customer_id: int, payment_amount: float):
-        """Deducts payment from customer's due balance (floor at 0.0)."""
+    def pay_due(customer_id: int, payment_amount: float, user_id: int = None, note: str = ""):
+        """Records a Khata collection in the ledger and deducts it from the due balance."""
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE customers SET balance = MAX(0.0, balance - ?) WHERE id = ?", (float(payment_amount), customer_id))
-            return cursor.rowcount > 0
+            cursor.execute("SELECT balance FROM customers WHERE id = ?", (customer_id,))
+            row = cursor.fetchone()
+            if not row:
+                return False
+            applied = min(float(payment_amount), max(0.0, float(row["balance"] or 0.0)))
+            if applied <= 0:
+                return False
+            cursor.execute("UPDATE customers SET balance = balance - ? WHERE id = ?", (applied, customer_id))
+            cursor.execute(
+                "INSERT INTO customer_payments (customer_id, user_id, amount, note, created_at) VALUES (?, ?, ?, ?, datetime('now', 'localtime'))",
+                (customer_id, user_id, applied, note)
+            )
+            return True
+
+    @staticmethod
+    def list_payments(customer_id: int, limit: int = 50):
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM customer_payments WHERE customer_id = ? ORDER BY created_at DESC LIMIT ?",
+                (customer_id, limit)
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
     def add_loyalty_points(customer_id: int, points: float):

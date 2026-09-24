@@ -53,7 +53,7 @@ class QtInventoryView(QWidget):
         # Tab 1: Low Stock & Reorder
         self.tab_low = QWidget()
         self._build_low_stock_tab()
-        self.tabs.addTab(self.tab_low, get_icon("alert", COLORS["warning"], 16), "Low Stock & Reorder")
+        self.tabs.addTab(self.tab_low, get_icon("alert", COLORS["warning"], 16), "Low Stock && Reorder")
 
         # Tab 2: Purchases / Stock-In
         self.tab_stockin = QWidget()
@@ -191,8 +191,8 @@ class QtInventoryView(QWidget):
 
         # Update KPI Cards
         self.card_val.findChild(QLabel, "val").setText(f"{self.currency} {total_val:,.2f}")
-        self.card_low.findChild(QLabel, "val").setText(f"{len(low_items)} Products")
-        self.card_count.findChild(QLabel, "val").setText(f"{len(prods)} Items")
+        self.card_low.findChild(QLabel, "val").setText(f"{len(low_items)} Product{'s' if len(low_items) != 1 else ''}")
+        self.card_count.findChild(QLabel, "val").setText(f"{len(prods)} Product{'s' if len(prods) != 1 else ''}")
 
         # Load Low stock table
         self.tbl_low.setRowCount(len(low_items))

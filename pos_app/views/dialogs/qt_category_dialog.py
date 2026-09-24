@@ -98,7 +98,7 @@ class QtCategoryManagerDialog(SmoothModalOverlay):
             self.table.setItem(row, 0, item_name)
 
             cnt = c.get("product_count", 0)
-            item_cnt = QTableWidgetItem(f"{cnt} items")
+            item_cnt = QTableWidgetItem(f"{cnt} item{'s' if cnt != 1 else ''}")
             item_cnt.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             item_cnt.setFlags(item_cnt.flags() ^ Qt.ItemFlag.ItemIsEditable)
             self.table.setItem(row, 1, item_cnt)

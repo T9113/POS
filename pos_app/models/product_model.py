@@ -146,8 +146,8 @@ class ProductModel:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data["name"].strip(),
-                data.get("sku", "").strip() or None,
-                data.get("barcode", "").strip() or None,
+                (data.get("sku") or "").strip() or None,
+                (data.get("barcode") or "").strip() or None,
                 data.get("category_id"),
                 data.get("parent_product_id"),
                 data.get("unit", "piece"),
@@ -165,8 +165,22 @@ class ProductModel:
             return cursor.lastrowid
 
     @staticmethod
+    def is_code_taken(code: str, exclude_id: int = None) -> bool:
+        if not code or not code.strip():
+            return False
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id FROM products WHERE (sku = ? OR barcode = ?) AND is_active = 1 AND id != ?",
+                (code.strip(), code.strip(), exclude_id or -1)
+            )
+            return cursor.fetchone() is not None
+
+    @staticmethod
     def update(product_id: int, data: dict):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        existing = ProductModel.get_by_id(product_id) or {}
+        data = {**existing, **data}
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -178,8 +192,8 @@ class ProductModel:
                 WHERE id = ?
             """, (
                 data["name"].strip(),
-                data.get("sku", "").strip() or None,
-                data.get("barcode", "").strip() or None,
+                (data.get("sku") or "").strip() or None,
+                (data.get("barcode") or "").strip() or None,
                 data.get("category_id"),
                 data.get("parent_product_id"),
                 data.get("unit", "piece"),
@@ -225,7 +239,7 @@ class ProductModel:
     def soft_delete(product_id: int):
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE products SET is_active = 0 WHERE id = ?", (product_id,))
+            cursor.execute("UPDATE products SET is_active = 0, sku = NULL WHERE id = ?", (product_id,))
             return cursor.rowcount > 0
 
     @staticmethod
