@@ -121,7 +121,7 @@ class QtMainWindow(QMainWindow):
                 background-color: {COLORS['bg_sidebar']};
                 border-top-left-radius: 14px;
                 border-top-right-radius: 14px;
-                border-bottom: 1px solid #334155;
+                border-bottom: 1px solid #1F2937;
             }}
         """)
 
@@ -131,7 +131,7 @@ class QtMainWindow(QMainWindow):
 
         # Brand / App Title
         brand_icon = QLabel(bar)
-        brand_icon.setPixmap(get_icon("lightning", color="#F59E0B", size=20).pixmap(20, 20))
+        brand_icon.setPixmap(get_icon("lightning", color="#14B8A6", size=20).pixmap(20, 20))
         brand_icon.setFixedSize(22, 22)
         layout.addWidget(brand_icon)
 
@@ -147,14 +147,14 @@ class QtMainWindow(QMainWindow):
         btn_collapse.setStyleSheet("""
             QPushButton {
                 background: transparent;
-                color: #94A3B8;
+                color: #9CA3AF;
                 font-size: 18px;
                 font-weight: bold;
                 border: none;
                 border-radius: 6px;
             }
             QPushButton:hover {
-                background: #334155;
+                background: #1F2937;
                 color: #FFFFFF;
             }
         """)
@@ -165,7 +165,7 @@ class QtMainWindow(QMainWindow):
 
         # Center Live Digital Clock
         self.lbl_clock = QLabel(bar)
-        self.lbl_clock.setStyleSheet("font-size: 12px; font-weight: 600; color: #94A3B8;")
+        self.lbl_clock.setStyleSheet("font-size: 12px; font-weight: 600; color: #9CA3AF;")
         layout.addWidget(self.lbl_clock)
 
         layout.addStretch()
@@ -177,7 +177,7 @@ class QtMainWindow(QMainWindow):
         role_bg = COLORS["primary"] if u_role == "Admin" else COLORS["success"]
 
         user_badge = QFrame(bar)
-        user_badge.setStyleSheet("background-color: #334155; border-radius: 14px; padding: 2px 8px;")
+        user_badge.setStyleSheet("background-color: #1F2937; border-radius: 14px; padding: 2px 8px;")
         ub_l = QHBoxLayout(user_badge)
         ub_l.setContentsMargins(8, 2, 8, 2)
         ub_l.setSpacing(6)
@@ -201,8 +201,8 @@ class QtMainWindow(QMainWindow):
         btn_min.setFixedSize(30, 30)
         btn_min.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_min.setStyleSheet("""
-            QPushButton { background: transparent; color: #94A3B8; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; }
-            QPushButton:hover { background: #334155; color: #FFFFFF; }
+            QPushButton { background: transparent; color: #9CA3AF; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; }
+            QPushButton:hover { background: #1F2937; color: #FFFFFF; }
         """)
         btn_min.clicked.connect(self.showMinimized)
         layout.addWidget(btn_min)
@@ -211,8 +211,8 @@ class QtMainWindow(QMainWindow):
         btn_max.setFixedSize(30, 30)
         btn_max.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_max.setStyleSheet("""
-            QPushButton { background: transparent; color: #94A3B8; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; }
-            QPushButton:hover { background: #334155; color: #FFFFFF; }
+            QPushButton { background: transparent; color: #9CA3AF; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; }
+            QPushButton:hover { background: #1F2937; color: #FFFFFF; }
         """)
         btn_max.clicked.connect(self._toggle_maximize)
         layout.addWidget(btn_max)

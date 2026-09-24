@@ -1,6 +1,6 @@
 """
 Design system, theme tokens, QSS styling, and animated widgets for OnesDev POS.
-Hardware-accelerated Slate & Indigo commercial theme with iOS-inspired physics.
+Premium Charcoal & Teal commercial theme with iOS-inspired physics.
 """
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QRect, QPoint, Signal, QSize
 from PySide6.QtWidgets import (
@@ -9,40 +9,40 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor, QFont, QCursor
 
-# Color Tokens (Slate & Indigo Palette)
+# Color Tokens (Premium Charcoal & Teal Business Palette)
 COLORS = {
     # App shell & surfaces
-    "bg_main": "#F8F9FB",
+    "bg_main": "#F8FAFB",
     "bg_surface": "#FFFFFF",
     "bg_surface_raised": "#FFFFFF",
     "bg_card": "#FFFFFF",
-    "bg_hover": "#F1F5F9",
-    "bg_input": "#F8F9FB",
+    "bg_hover": "#F0F4F5",
+    "bg_input": "#F7F9FA",
 
-    # Sidebar: Deep Slate
-    "bg_sidebar": "#1E293B",
-    "sidebar_text": "#94A3B8",
-    "sidebar_hover": "#334155",
-    "sidebar_active_bg": "#334155",
+    # Sidebar: Deep Charcoal
+    "bg_sidebar": "#111827",
+    "sidebar_text": "#9CA3AF",
+    "sidebar_hover": "#1F2937",
+    "sidebar_active_bg": "#1F2937",
     "sidebar_active_text": "#FFFFFF",
-    "sidebar_indicator": "#6366F1",
+    "sidebar_indicator": "#14B8A6",
 
     # Borders & Dividers
     "border": "#E2E8F0",
     "border_subtle": "#F1F5F9",
-    "border_focus": "#6366F1",
+    "border_focus": "#0D9488",
 
     # Typography
-    "text_primary": "#0F172A",
-    "text_secondary": "#475569",
-    "text_muted": "#94A3B8",
-    "text_on_dark": "#F8FAFC",
+    "text_primary": "#111827",
+    "text_secondary": "#4B5563",
+    "text_muted": "#9CA3AF",
+    "text_on_dark": "#F9FAFB",
     "text_on_primary": "#FFFFFF",
 
-    # Accents & Semantic
-    "primary": "#4F46E5",
-    "primary_hover": "#4338CA",
-    "primary_subtle": "#EEF2FF",
+    # Accents & Semantic — Teal primary, professional business tone
+    "primary": "#0D9488",
+    "primary_hover": "#0F766E",
+    "primary_subtle": "#F0FDFA",
     "success": "#059669",
     "success_hover": "#047857",
     "success_subtle": "#ECFDF5",
@@ -56,6 +56,8 @@ COLORS = {
     "bg_error": "#FEF2F2",
     "text_error": "#DC2626",
     "gold": "#D97706",
+    "info": "#0284C7",
+    "info_subtle": "#F0F9FF",
 }
 
 # Global QSS Stylesheet
