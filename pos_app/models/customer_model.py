@@ -132,6 +132,7 @@ class CustomerModel:
     def delete(customer_id: int):
         with get_db() as conn:
             cursor = conn.cursor()
+            cursor.execute("DELETE FROM customer_payments WHERE customer_id = ?", (customer_id,))
             cursor.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
             return cursor.rowcount > 0
 

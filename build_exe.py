@@ -78,6 +78,18 @@ def build():
             shutil.copy2(root_db, dist_db)
             print(f" [DATABASE] Synced pristine demo database to: {dist_db}")
 
+        # Sync license.lic if present
+        root_lic = os.path.join(base_dir, "license.lic")
+        app_lic = os.path.join(base_dir, "pos_app", "license.lic")
+        dist_lic = os.path.join(dist_dir, "license.lic")
+        import shutil
+        if os.path.exists(root_lic):
+            shutil.copy2(root_lic, dist_lic)
+            print(f" [LICENSE] Synced license file to: {dist_lic}")
+        elif os.path.exists(app_lic):
+            shutil.copy2(app_lic, dist_lic)
+            print(f" [LICENSE] Synced license file to: {dist_lic}")
+
         print("\n==================================================")
         print(" [SUCCESS] OnesDevPOS.exe built successfully!")
         print(f" Executable Path: {exe_path}")

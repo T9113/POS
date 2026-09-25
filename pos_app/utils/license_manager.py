@@ -204,8 +204,8 @@ class LicenseManager:
 
         # 3. Save to license.lic file next to database or executable
         try:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            lic_path = os.path.join(base_dir, "license.lic")
+            from pos_app.config import APP_DIR
+            lic_path = os.path.join(APP_DIR, "license.lic")
             with open(lic_path, "w", encoding="utf-8") as f:
                 f.write(clean_key)
         except Exception:
@@ -238,13 +238,19 @@ class LicenseManager:
 
         # 3. Try local license.lic file
         try:
+            from pos_app.config import APP_DIR
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            lic_path = os.path.join(base_dir, "license.lic")
-            if os.path.exists(lic_path):
-                with open(lic_path, "r", encoding="utf-8") as f:
-                    content = f.read().strip()
-                    if content:
-                        return content
+            candidates = [
+                os.path.join(APP_DIR, "license.lic"),
+                os.path.join(base_dir, "license.lic"),
+                os.path.join(base_dir, "pos_app", "license.lic"),
+            ]
+            for lic_path in candidates:
+                if os.path.exists(lic_path):
+                    with open(lic_path, "r", encoding="utf-8") as f:
+                        content = f.read().strip()
+                        if content:
+                            return content
         except Exception:
             pass
 

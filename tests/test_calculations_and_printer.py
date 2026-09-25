@@ -10,9 +10,14 @@ from pos_app.models.expense_model import ExpenseModel
 from pos_app.models.report_model import ReportModel
 from pos_app.controllers.cart_controller import CartController
 from pos_app.utils.receipt_printer import ReceiptPrinter
+from pos_app.database import init_database
 
 
 class TestPOSCalculationsAndPrinter(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        init_database()
 
     def setUp(self):
         # Create a test customer
@@ -27,6 +32,7 @@ class TestPOSCalculationsAndPrinter(unittest.TestCase):
             from pos_app.database import get_db
             with get_db() as conn:
                 cursor = conn.cursor()
+                cursor.execute("DELETE FROM customer_payments WHERE customer_id = ?", (self.cust_id,))
                 cursor.execute("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE customer_id = ?)", (self.cust_id,))
                 cursor.execute("DELETE FROM orders WHERE customer_id = ?", (self.cust_id,))
             CustomerModel.delete(self.cust_id)

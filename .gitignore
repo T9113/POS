@@ -16,3 +16,8 @@ build/
 backups/
 exports/
 data/
+
+# Local machine license files (embedded pos_app/license.lic is tracked)
+license.lic
+dist/license.lic
+
