@@ -10,12 +10,14 @@ from PySide6.QtWidgets import (
     QMessageBox, QFrame, QSplitter
 )
 
-from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from PySide6.QtGui import QColor
+from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, clear_layout, order_status_display
 from pos_app.utils.icon_helper import get_icon
 from pos_app.models.order_model import OrderModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.utils.receipt_printer import ReceiptPrinter
 from pos_app.views.dialogs.qt_receipt_dialog import QtReceiptPreviewDialog
+from pos_app.views.dialogs.qt_return_dialog import QtReturnDialog
 
 
 class QtSalesView(QWidget):
@@ -78,9 +80,12 @@ class QtSalesView(QWidget):
         left_layout.addWidget(lbl_list_title)
 
         self.table_orders = QTableWidget(left_card)
-        self.table_orders.setColumnCount(5)
-        self.table_orders.setHorizontalHeaderLabels(["Order #", "Customer", "Date & Time", "Total", "Method"])
-        self.table_orders.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table_orders.setColumnCount(6)
+        self.table_orders.setHorizontalHeaderLabels(["Order #", "Customer", "Date", "Total", "Method", "Status"])
+        hdr = self.table_orders.horizontalHeader()
+        for col in (0, 2, 3, 4, 5):
+            hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table_orders.verticalHeader().setVisible(False)
         self.table_orders.setAlternatingRowColors(True)
         self.table_orders.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -117,16 +122,14 @@ class QtSalesView(QWidget):
         self._render_empty_details()
         splitter.addWidget(self.right_card)
 
-        splitter.setSizes([650, 450])
+        splitter.setSizes([760, 440])
         main_layout.addWidget(splitter, stretch=1)
 
     def _render_empty_details(self):
-        while self.right_layout.count():
-            item = self.right_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.right_layout)
 
         lbl_empty = QLabel("Select any order from the table to inspect receipt details and line items.", self.right_card)
+        lbl_empty.setWordWrap(True)
         lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_empty.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 14px;")
         self.right_layout.addWidget(lbl_empty)
@@ -149,7 +152,7 @@ class QtSalesView(QWidget):
             cust = o.get("customer_name") or "Walk-in Customer"
             self.table_orders.setItem(r, 1, QTableWidgetItem(cust))
 
-            dt_str = o.get("created_at", "")[:16]
+            dt_str = o.get("created_at", "")[5:16]
             self.table_orders.setItem(r, 2, QTableWidgetItem(dt_str))
 
             tot_item = QTableWidgetItem(f"{self.currency} {o.get('total', 0.0):,.2f}")
@@ -159,6 +162,12 @@ class QtSalesView(QWidget):
             method_item = QTableWidgetItem((o.get("payment_method") or "cash").upper())
             method_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_orders.setItem(r, 4, method_item)
+
+            status_label, status_color = order_status_display(o.get("status"))
+            status_item = QTableWidgetItem(status_label)
+            status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            status_item.setForeground(QColor(status_color))
+            self.table_orders.setItem(r, 5, status_item)
 
     def _on_order_selected(self):
         selected_rows = self.table_orders.selectedIndexes()
@@ -170,10 +179,7 @@ class QtSalesView(QWidget):
             self._render_order_details(order)
 
     def _render_order_details(self, order: dict):
-        while self.right_layout.count():
-            item = self.right_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.right_layout)
 
         # Full order details with items
         full_order = OrderModel.get_order_by_id(order["id"]) or order
@@ -188,10 +194,17 @@ class QtSalesView(QWidget):
         lbl_info.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px;")
         self.right_layout.addWidget(lbl_info)
 
+        cust_row = QHBoxLayout()
         cust_info = f"Customer: {full_order.get('customer_name') or 'Walk-in Customer'} ({full_order.get('payment_method', 'cash').upper()})"
         lbl_cust = QLabel(cust_info, self.right_card)
         lbl_cust.setStyleSheet(f"color: {COLORS['text_primary']}; font-size: 13px; font-weight: 600;")
-        self.right_layout.addWidget(lbl_cust)
+        cust_row.addWidget(lbl_cust)
+        cust_row.addStretch()
+        status_label, status_color = order_status_display(full_order.get("status"))
+        lbl_status = QLabel(status_label, self.right_card)
+        lbl_status.setStyleSheet(f"color: {status_color}; font-size: 11px; font-weight: 700; border: 1px solid {status_color}; border-radius: 9px; padding: 2px 10px;")
+        cust_row.addWidget(lbl_status)
+        self.right_layout.addLayout(cust_row)
 
         # Line Items Table
         items_table = QTableWidget(self.right_card)
@@ -199,6 +212,8 @@ class QtSalesView(QWidget):
         items_table.setColumnCount(4)
         items_table.setHorizontalHeaderLabels(["Item", "Qty", "Price", "Total"])
         items_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for col in (1, 2, 3):
+            items_table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         items_table.verticalHeader().setVisible(False)
         items_table.setRowCount(len(items))
         items_table.setStyleSheet(f"""
@@ -235,7 +250,8 @@ class QtSalesView(QWidget):
 
         # Totals breakdown
         totals_card = QFrame(self.right_card)
-        totals_card.setStyleSheet(f"background-color: {COLORS['bg_hover']}; border-radius: 8px; padding: 10px;")
+        totals_card.setObjectName("OrderTotalsCard")
+        totals_card.setStyleSheet(f"QFrame#OrderTotalsCard {{ background-color: {COLORS['bg_hover']}; border-radius: 8px; }}")
         tot_l = QVBoxLayout(totals_card)
         tot_l.setSpacing(4)
 
@@ -257,21 +273,32 @@ class QtSalesView(QWidget):
         tot_l.addWidget(lbl_grand)
 
         tot_l.addWidget(QLabel(f"Amount Paid: {self.currency} {paid:,.2f}  |  Change Due: {self.currency} {change:,.2f}"))
+        refunded = OrderModel.get_order_refund_total(full_order["id"]) if full_order.get("id") else 0.0
+        if refunded > 0:
+            lbl_ref = QLabel(f"Refunded: -{self.currency} {refunded:,.2f}")
+            lbl_ref.setStyleSheet(f"color: {COLORS['danger']}; font-weight: 600;")
+            tot_l.addWidget(lbl_ref)
         self.right_layout.addWidget(totals_card)
 
         # Action Buttons: Preview & Reprint Receipt
         btn_box = QHBoxLayout()
         btn_box.setSpacing(8)
 
-        btn_preview = AnimatedButton("Preview Receipt", self.right_card, variant="secondary", icon_name="copy")
+        btn_preview = AnimatedButton("Preview", self.right_card, variant="secondary", icon_name="copy")
         btn_preview.setFixedHeight(38)
         btn_preview.clicked.connect(lambda: self._preview_receipt(full_order))
         btn_box.addWidget(btn_preview)
 
-        btn_reprint = AnimatedButton("Print Receipt", self.right_card, variant="primary", icon_name="printer", icon_color="#FFFFFF")
+        btn_reprint = AnimatedButton("Print", self.right_card, variant="primary", icon_name="printer", icon_color="#FFFFFF")
         btn_reprint.setFixedHeight(38)
         btn_reprint.clicked.connect(lambda: self._reprint_receipt(full_order))
         btn_box.addWidget(btn_reprint)
+
+        if full_order.get("status") != "returned":
+            btn_return = AnimatedButton("Return", self.right_card, variant="danger", icon_name="undo", icon_color="#FFFFFF", icon_size=14)
+            btn_return.setFixedHeight(38)
+            btn_return.clicked.connect(lambda: self._open_return_dialog(full_order))
+            btn_box.addWidget(btn_return)
 
         self.right_layout.addLayout(btn_box)
 
@@ -286,3 +313,14 @@ class QtSalesView(QWidget):
             QMessageBox.information(self, "Receipt Printed", "Receipt printed successfully.")
         else:
             QMessageBox.warning(self, "Print Notice", msg)
+
+    def _open_return_dialog(self, order: dict):
+        top_window = self.window()
+        self.dlg_return = QtReturnDialog(top_window, order, on_complete=lambda: self._after_return(order["id"]))
+        self.dlg_return.show_animated()
+
+    def _after_return(self, order_id):
+        self.refresh_orders()
+        refreshed = OrderModel.get_order_by_id(order_id)
+        if refreshed:
+            self._render_order_details(refreshed)

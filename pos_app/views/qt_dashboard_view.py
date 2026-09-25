@@ -10,12 +10,13 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor
 
-from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, order_status_display
 from pos_app.models.order_model import OrderModel
 from pos_app.models.product_model import ProductModel
 from pos_app.models.expense_model import ExpenseModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.controllers.auth_controller import AuthController
+from pos_app.utils.icon_helper import get_icon
 
 
 class QtDashboardView(QWidget):
@@ -69,6 +70,12 @@ class QtDashboardView(QWidget):
             btn_add_prod.clicked.connect(lambda: self.navigate_to.emit("products"))
             greet_layout.addWidget(btn_add_prod)
 
+        btn_eod = AnimatedButton(" Close Day", greeting_card, variant="secondary", icon_name="sunset", icon_size=14)
+        btn_eod.setFixedHeight(42)
+        btn_eod.setToolTip("End of Day Cash Reconciliation")
+        btn_eod.clicked.connect(self._open_eod_dialog)
+        greet_layout.addWidget(btn_eod)
+
         layout.addWidget(greeting_card)
 
         # 2. KPI Metrics Grid (4 Cards)
@@ -90,7 +97,7 @@ class QtDashboardView(QWidget):
         layout.addLayout(kpi_layout)
 
         # 3. Recent Transactions Section
-        lbl_recent = QLabel("Recent Completed Transactions", self)
+        lbl_recent = QLabel("Recent Transactions", self)
         lbl_recent.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {COLORS['text_primary']}; margin-top: 6px;")
         layout.addWidget(lbl_recent)
 
@@ -129,16 +136,22 @@ class QtDashboardView(QWidget):
 
         return card
 
+    def _open_eod_dialog(self):
+        from pos_app.views.dialogs.qt_eod_dialog import QtEODDialog
+        top_window = self.window()
+        self.dlg_eod = QtEODDialog(top_window)
+        self.dlg_eod.show_animated()
+
     def refresh_data(self):
         """Reloads metrics and table from database."""
+        self.currency = SettingsModel.get("currency_symbol", "Rs")
         today = datetime.now().strftime("%Y-%m-%d")
-        orders = OrderModel.get_orders_by_date_range(today, today)
-        total_sales = sum(o.get("total", 0.0) for o in orders)
-        order_count = len(orders)
-        avg_order = total_sales / order_count if order_count > 0 else 0.0
+        metrics = OrderModel.get_today_metrics()
+        total_sales = metrics["total_sales"]
+        order_count = metrics["total_orders"]
+        avg_order = metrics["avg_order_value"]
 
-        # Profit & Expenses
-        gross_profit = sum(o.get("gross_profit", 0.0) for o in orders)
+        gross_profit = metrics["gross_profit"]
         expenses = ExpenseModel.get_total_for_range(today, today)
         net_profit = gross_profit - expenses
 
@@ -148,15 +161,18 @@ class QtDashboardView(QWidget):
 
         # Update KPI Cards
         self.card_sales.findChild(QLabel, "val").setText(f"{self.currency} {total_sales:,.2f}")
-        self.card_sales.findChild(QLabel, "sub").setText(f"{order_count} completed orders")
+        sales_sub = f"{order_count} order{'s' if order_count != 1 else ''} today"
+        if metrics["total_refunds"]:
+            sales_sub += f" • {self.currency} {metrics['total_refunds']:,.2f} refunded"
+        self.card_sales.findChild(QLabel, "sub").setText(sales_sub)
 
-        self.card_orders.findChild(QLabel, "val").setText(f"{order_count} Orders")
+        self.card_orders.findChild(QLabel, "val").setText(f"{order_count} Order{'s' if order_count != 1 else ''}")
         self.card_orders.findChild(QLabel, "sub").setText(f"Average: {self.currency} {avg_order:,.2f}")
 
         self.card_profit.findChild(QLabel, "val").setText(f"{self.currency} {net_profit:,.2f}")
         self.card_profit.findChild(QLabel, "sub").setText(f"Gross: {self.currency} {gross_profit:,.2f} • Exp: {self.currency} {expenses:,.2f}")
 
-        self.card_low_stock.findChild(QLabel, "val").setText(f"{low_count} Items")
+        self.card_low_stock.findChild(QLabel, "val").setText(f"{low_count} Item{'s' if low_count != 1 else ''}")
         self.card_low_stock.findChild(QLabel, "sub").setText("Action required" if low_count > 0 else "All stock healthy")
 
         # Load Recent Orders (top 20)
@@ -184,9 +200,10 @@ class QtDashboardView(QWidget):
             item_pay.setFlags(item_pay.flags() ^ Qt.ItemFlag.ItemIsEditable)
             self.table.setItem(row, 3, item_pay)
 
-            item_status = QTableWidgetItem("Completed")
+            status_label, status_color = order_status_display(o.get("status"))
+            item_status = QTableWidgetItem(status_label)
             item_status.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            item_status.setForeground(QColor(COLORS["success"]))
+            item_status.setForeground(QColor(status_color))
             item_status.setFlags(item_status.flags() ^ Qt.ItemFlag.ItemIsEditable)
             self.table.setItem(row, 4, item_status)
 

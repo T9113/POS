@@ -1,5 +1,7 @@
 from datetime import datetime
 from pos_app.database import get_db
+from pos_app.models.order_model import OrderModel
+
 
 class EODModel:
     @staticmethod
@@ -7,44 +9,43 @@ class EODModel:
         today_date = datetime.now().strftime("%Y-%m-%d")
         with get_db() as conn:
             cursor = conn.cursor()
-            # Total sales & orders today
             cursor.execute("""
-                SELECT 
-                    COUNT(*) as total_orders,
-                    COALESCE(SUM(total), 0.0) as total_sales
+                SELECT COUNT(*) as total_orders, COALESCE(SUM(total), 0.0) as total_sales
                 FROM orders
                 WHERE date(created_at) = date(?) AND status != 'cancelled'
             """, (today_date,))
             sales_row = cursor.fetchone()
 
-            # Calculate expected cash in drawer (cash orders + cash portion of split orders)
+            # Cash taken into the drawer: full cash sales plus the cash part of split sales
             cursor.execute("""
-                SELECT 
-                    COALESCE(SUM(amount_paid - change_due), 0.0) as cash_sales
+                SELECT COALESCE(SUM(amount_paid - change_due), 0.0) as cash_sales
                 FROM orders
-                WHERE date(created_at) = date(?) 
+                WHERE date(created_at) = date(?)
                   AND status != 'cancelled'
-                  AND payment_method = 'cash'
+                  AND payment_method IN ('cash', 'split')
             """, (today_date,))
-            cash_row = cursor.fetchone()
+            cash_sales = cursor.fetchone()["cash_sales"]
 
-            # Cash refunds deducted
             cursor.execute("""
-                SELECT COALESCE(SUM(total_refund), 0.0) as cash_refunds
-                FROM returns
+                SELECT COALESCE(SUM(amount), 0.0) as collected
+                FROM customer_payments
                 WHERE date(created_at) = date(?)
             """, (today_date,))
-            refund_row = cursor.fetchone()
+            khata_collections = cursor.fetchone()["collected"]
 
-            expected_cash = max(0.0, cash_row["cash_sales"] - refund_row["cash_refunds"])
+        refunds = OrderModel.get_refund_totals(today_date, today_date)
+        expected_cash = round(cash_sales + khata_collections - refunds["cash_refunds"], 2)
 
-            return {
-                "date": today_date,
-                "total_orders": sales_row["total_orders"],
-                "total_sales": sales_row["total_sales"],
-                "expected_cash": expected_cash,
-                "cash_refunds": refund_row["cash_refunds"]
-            }
+        return {
+            "date": today_date,
+            "total_orders": sales_row["total_orders"],
+            "total_sales": sales_row["total_sales"],
+            "cash_sales": cash_sales,
+            "khata_collections": khata_collections,
+            "cash_refunds": refunds["cash_refunds"],
+            "total_refunds": refunds["total_refunds"],
+            "expected_cash": expected_cash,
+        }
 
     @staticmethod
     def save_eod_report(user_id: int, total_sales: float, total_orders: int,
@@ -73,6 +74,15 @@ class EODModel:
                 LIMIT ?
             """, (limit,))
             return [dict(row) for row in cursor.fetchall()]
+
+    @staticmethod
+    def get_today_report():
+        today_date = datetime.now().strftime("%Y-%m-%d")
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM eod_reports WHERE date = ? ORDER BY created_at DESC LIMIT 1", (today_date,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
 
     @staticmethod
     def get_expected_cash():

@@ -15,6 +15,7 @@ from pos_app.models.product_model import ProductModel
 from pos_app.models.supplier_model import SupplierModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.utils.icon_helper import get_icon
+from pos_app.views.dialogs.qt_stock_adjust_dialog import QtStockAdjustDialog
 
 
 class QtInventoryView(QWidget):
@@ -52,7 +53,7 @@ class QtInventoryView(QWidget):
         # Tab 1: Low Stock & Reorder
         self.tab_low = QWidget()
         self._build_low_stock_tab()
-        self.tabs.addTab(self.tab_low, get_icon("alert", COLORS["warning"], 16), "Low Stock & Reorder")
+        self.tabs.addTab(self.tab_low, get_icon("alert", COLORS["warning"], 16), "Low Stock && Reorder")
 
         # Tab 2: Purchases / Stock-In
         self.tab_stockin = QWidget()
@@ -92,6 +93,14 @@ class QtInventoryView(QWidget):
         l = QVBoxLayout(self.tab_low)
         l.setContentsMargins(14, 14, 14, 14)
         l.setSpacing(10)
+
+        top_row = QHBoxLayout()
+        top_row.addStretch()
+        btn_adjust = AnimatedButton("Stock Adjustment", self.tab_low, variant="secondary", icon_name="package")
+        btn_adjust.setFixedHeight(36)
+        btn_adjust.clicked.connect(self._open_stock_adjust)
+        top_row.addWidget(btn_adjust)
+        l.addLayout(top_row)
 
         self.tbl_low = QTableWidget(self.tab_low)
         self.tbl_low.setColumnCount(6)
@@ -169,6 +178,11 @@ class QtInventoryView(QWidget):
         self.tbl_supp.verticalHeader().setVisible(False)
         l.addWidget(self.tbl_supp)
 
+    def _open_stock_adjust(self):
+        top_window = self.window()
+        self.dlg_adjust = QtStockAdjustDialog(top_window, on_complete=self.refresh_data)
+        self.dlg_adjust.show_animated()
+
     def refresh_data(self):
         """Reloads all inventory data."""
         prods = ProductModel.get_all()
@@ -177,8 +191,8 @@ class QtInventoryView(QWidget):
 
         # Update KPI Cards
         self.card_val.findChild(QLabel, "val").setText(f"{self.currency} {total_val:,.2f}")
-        self.card_low.findChild(QLabel, "val").setText(f"{len(low_items)} Products")
-        self.card_count.findChild(QLabel, "val").setText(f"{len(prods)} Items")
+        self.card_low.findChild(QLabel, "val").setText(f"{len(low_items)} Product{'s' if len(low_items) != 1 else ''}")
+        self.card_count.findChild(QLabel, "val").setText(f"{len(prods)} Product{'s' if len(prods) != 1 else ''}")
 
         # Load Low stock table
         self.tbl_low.setRowCount(len(low_items))

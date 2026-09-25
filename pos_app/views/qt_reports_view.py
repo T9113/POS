@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QButtonGroup, QPushButton
 )
 
-from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, clear_layout
 from pos_app.models.report_model import ReportModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.utils.exporter import Exporter
@@ -276,15 +276,14 @@ class QtReportsView(QWidget):
         self.currency = SettingsModel.get("currency_symbol", "Rs")
 
         # 1. Update Financial KPI Banner
-        while self.kpi_layout.count():
-            item = self.kpi_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+        clear_layout(self.kpi_layout)
 
         summary = ReportModel.get_sales_summary(self.date_from, self.date_to)
 
-        self._create_kpi_card("TOTAL REVENUE", f"{self.currency} {summary['total_sales']:,.2f}", f"{summary['total_orders']} completed sales", COLORS["primary"])
+        rev_sub = f"{summary['total_orders']} sales"
+        if summary.get("total_refunds"):
+            rev_sub += f"  •  {self.currency} {summary['total_refunds']:,.2f} refunded"
+        self._create_kpi_card("NET REVENUE", f"{self.currency} {summary['total_sales']:,.2f}", rev_sub, COLORS["primary"])
         self._create_kpi_card("GROSS PROFIT", f"{self.currency} {summary['gross_profit']:,.2f}", "Revenue minus product costs", COLORS["success"])
         self._create_kpi_card("EXPENSES", f"{self.currency} {summary['total_expenses']:,.2f}", "Shop operating expenses", COLORS["warning"])
         net_col = COLORS["success"] if summary["net_profit"] >= 0 else COLORS["danger"]
@@ -405,7 +404,9 @@ class QtReportsView(QWidget):
         ]
         filename = f"sales_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         summary_items = [
-            ("Total Sales", f"{self.currency} {summary['total_sales']:,.2f}"),
+            ("Gross Sales", f"{self.currency} {summary['gross_sales']:,.2f}"),
+            ("Refunds", f"{self.currency} {summary['total_refunds']:,.2f}"),
+            ("Net Sales", f"{self.currency} {summary['total_sales']:,.2f}"),
             ("Orders", str(summary["total_orders"])),
             ("Gross Profit", f"{self.currency} {summary['gross_profit']:,.2f}"),
             ("Expenses", f"{self.currency} {summary['total_expenses']:,.2f}"),

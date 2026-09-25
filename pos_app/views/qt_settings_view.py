@@ -75,12 +75,12 @@ class QtSettingsView(QWidget):
         # 2. Taxes & Currency
         self.tab_tax = QWidget()
         self._build_tax_tab()
-        self.tabs.addTab(self.tab_tax, get_icon("dollar", COLORS["text_secondary"], 16), "Taxes & Currency")
+        self.tabs.addTab(self.tab_tax, get_icon("dollar", COLORS["text_secondary"], 16), "Taxes && Currency")
 
         # 3. Receipt & Printer
         self.tab_print = QWidget()
         self._build_print_tab()
-        self.tabs.addTab(self.tab_print, get_icon("printer", COLORS["text_secondary"], 16), "Receipt & Printer")
+        self.tabs.addTab(self.tab_print, get_icon("printer", COLORS["text_secondary"], 16), "Receipt && Printer")
 
         # 4. User Roles
         self.tab_users = QWidget()
@@ -90,7 +90,7 @@ class QtSettingsView(QWidget):
         # 5. Backup & Reset
         self.tab_data = QWidget()
         self._build_data_tab()
-        self.tabs.addTab(self.tab_data, get_icon("database", COLORS["text_secondary"], 16), "Backup & Reset")
+        self.tabs.addTab(self.tab_data, get_icon("database", COLORS["text_secondary"], 16), "Backup && Reset")
 
         main_layout.addWidget(self.tabs)
 
@@ -184,15 +184,16 @@ class QtSettingsView(QWidget):
 
         lic_info = LicenseManager.get_license_info()
         lic_card = QFrame(container)
+        lic_card.setObjectName("LicenseCard")
         lic_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#LicenseCard {{
                 background-color: {COLORS['bg_hover']};
                 border: 1px solid {COLORS['border']};
                 border-radius: 8px;
-                padding: 10px;
             }}
         """)
         lic_layout = QVBoxLayout(lic_card)
+        lic_layout.setContentsMargins(14, 12, 14, 12)
         lic_layout.setSpacing(6)
 
         st_col = COLORS['success'] if lic_info['is_activated'] else COLORS['danger']
@@ -308,7 +309,7 @@ class QtSettingsView(QWidget):
 
         c_layout.addLayout(tax_form)
 
-        btn_save_tax = AnimatedButton("Save Currency & Tax Settings", container, variant="primary", icon_name="check")
+        btn_save_tax = AnimatedButton("Save Currency && Tax Settings", container, variant="primary", icon_name="check")
         btn_save_tax.setFixedHeight(40)
         btn_save_tax.setFixedWidth(260)
         btn_save_tax.clicked.connect(self._save_tax_settings)
@@ -505,32 +506,71 @@ class QtSettingsView(QWidget):
             item_st.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_users.setItem(r, 3, item_st)
 
-            # Action button
+            # Actions: reset password for everyone, activate/deactivate for non-root users
+            act_widget = QWidget()
+            act_layout = QHBoxLayout(act_widget)
+            act_layout.setContentsMargins(4, 2, 4, 2)
+            act_layout.setSpacing(6)
+
+            btn_pwd = QPushButton("Change Password")
+            btn_pwd.setFixedSize(128, 28)
+            btn_pwd.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_pwd.setStyleSheet(self._user_action_style(COLORS['primary_subtle'], COLORS['primary']))
+            btn_pwd.clicked.connect(lambda _, uid=u["id"], uname=u["username"]: self._change_password(uid, uname))
+            act_layout.addWidget(btn_pwd)
+
             if u["username"].lower() != "admin":
                 btn_toggle = QPushButton("Deactivate" if u["is_active"] else "Activate")
-                btn_toggle.setFixedHeight(28)
+                btn_toggle.setFixedSize(92, 28)
                 btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
-                btn_toggle.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: {COLORS['bg_hover']};
-                        color: {COLORS['text_primary']};
-                        border: 1px solid {COLORS['border']};
-                        border-radius: 6px;
-                        font-size: 11px;
-                        font-weight: 600;
-                    }}
-                    QPushButton:hover {{
-                        background-color: {COLORS['danger_subtle'] if u['is_active'] else COLORS['success_subtle']};
-                        color: {COLORS['danger'] if u['is_active'] else COLORS['success']};
-                    }}
-                """)
+                btn_toggle.setStyleSheet(self._user_action_style(
+                    COLORS['danger_subtle'] if u['is_active'] else COLORS['success_subtle'],
+                    COLORS['danger'] if u['is_active'] else COLORS['success']
+                ))
                 btn_toggle.clicked.connect(lambda _, uid=u["id"], act=u["is_active"]: self._toggle_user(uid, act))
-                self.table_users.setCellWidget(r, 4, btn_toggle)
-            else:
-                lbl_locked = QLabel("System Root")
-                lbl_locked.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                lbl_locked.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 11px; font-style: italic;")
-                self.table_users.setCellWidget(r, 4, lbl_locked)
+                act_layout.addWidget(btn_toggle)
+
+            act_layout.addStretch()
+            self.table_users.setCellWidget(r, 4, act_widget)
+        self.table_users.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        self.table_users.setColumnWidth(4, 250)
+        self.table_users.verticalHeader().setDefaultSectionSize(40)
+
+    def _user_action_style(self, hover_bg: str, hover_fg: str) -> str:
+        return f"""
+            QPushButton {{
+                background-color: {COLORS['bg_hover']};
+                color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: 600;
+                padding: 0 10px;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_bg};
+                color: {hover_fg};
+            }}
+        """
+
+    def _change_password(self, uid, username):
+        pwd, ok = QInputDialog.getText(self, "Change Password", f"New password for '{username}' (min 4 characters):", QLineEdit.EchoMode.Password)
+        if not ok:
+            return
+        pwd = pwd.strip()
+        if len(pwd) < 4:
+            QMessageBox.warning(self, "Password Too Short", "Password must be at least 4 characters.")
+            return
+        confirm, ok = QInputDialog.getText(self, "Change Password", "Confirm new password:", QLineEdit.EchoMode.Password)
+        if not ok:
+            return
+        if confirm.strip() != pwd:
+            QMessageBox.warning(self, "Mismatch", "Passwords do not match. Nothing was changed.")
+            return
+        u = UserModel.get_by_id(uid)
+        if u:
+            UserModel.update(uid, u["full_name"], u["role"], u["is_active"], password=pwd)
+            QMessageBox.information(self, "Password Updated", f"Password for '{username}' has been changed.")
 
     def _toggle_user(self, uid, current_active):
         u = UserModel.get_by_id(uid)
@@ -543,8 +583,14 @@ class QtSettingsView(QWidget):
         uname, ok = QInputDialog.getText(self, "Add User", "Enter Username:")
         if not ok or not uname.strip():
             return
-        pwd, ok = QInputDialog.getText(self, "Add User", f"Enter Password for {uname.strip()}:", QLineEdit.EchoMode.Password)
-        if not ok or not pwd.strip():
+        if UserModel.get_by_username(uname.strip()):
+            QMessageBox.warning(self, "Username Taken", f"A user named '{uname.strip()}' already exists.")
+            return
+        pwd, ok = QInputDialog.getText(self, "Add User", f"Enter Password for {uname.strip()} (min 4 characters):", QLineEdit.EchoMode.Password)
+        if not ok:
+            return
+        if len(pwd.strip()) < 4:
+            QMessageBox.warning(self, "Password Too Short", "Password must be at least 4 characters.")
             return
         fname, ok = QInputDialog.getText(self, "Add User", f"Enter Full Name for {uname.strip()}:")
         if not ok:
@@ -600,8 +646,9 @@ class QtSettingsView(QWidget):
 
         # Danger Zone Card
         d_card = QFrame(self.tab_data)
+        d_card.setObjectName("DangerZone")
         d_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#DangerZone {{
                 background-color: {COLORS['danger_subtle']};
                 border: 1px solid #FECACA;
                 border-radius: 12px;

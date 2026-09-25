@@ -205,6 +205,18 @@ CREATE TABLE IF NOT EXISTS returns (
     FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
+-- Khata (customer credit) payment collections ledger
+CREATE TABLE IF NOT EXISTS customer_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    user_id INTEGER,
+    amount REAL NOT NULL,
+    note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(customer_id) REFERENCES customers(id),
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
 -- Activity Log table
 CREATE TABLE IF NOT EXISTS activity_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -242,6 +254,8 @@ CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_activity_date ON activity_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_returns_order ON returns(order_id);
+CREATE INDEX IF NOT EXISTS idx_cust_payments_date ON customer_payments(created_at);
 """
 
 @contextmanager
@@ -275,7 +289,9 @@ def _run_migrations(conn):
         ("order_items", "override_reason", "TEXT"),
         ("stock_adjustments", "type", "TEXT DEFAULT 'adjustment'"),
         ("activity_log", "entity_type", "TEXT"),
-        ("activity_log", "entity_id", "INTEGER")
+        ("activity_log", "entity_id", "INTEGER"),
+        ("returns", "refund_method", "TEXT DEFAULT 'cash'"),
+        ("returns", "cash_amount", "REAL")
     ]
     for table, col, col_type in migrations:
         try:

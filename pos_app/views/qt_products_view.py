@@ -2,6 +2,7 @@
 PySide6 Products Management View for OnesDev POS.
 Product catalog table, category management, stock alerts, and add/edit dialogs.
 """
+import sqlite3
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox,
@@ -24,12 +25,13 @@ class QtProductEditDialog(SmoothModalOverlay):
     clean 2-column layout, and zero emoji clutter.
     """
     def __init__(self, parent, product=None, on_save=None):
-        super().__init__(parent, target_width=520, target_height=580)
+        super().__init__(parent, target_width=540, target_height=600)
         self.product = product or {}
         self.on_save = on_save
         self._build_dialog_ui()
 
     def _build_dialog_ui(self):
+        cur = SettingsModel.get("currency_symbol", "Rs")
         content = QWidget()
         layout = QVBoxLayout(content)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -137,7 +139,7 @@ class QtProductEditDialog(SmoothModalOverlay):
 
         col_sell = QVBoxLayout()
         col_sell.setSpacing(4)
-        lbl_sell = QLabel("Selling Price (Rs) *", content)
+        lbl_sell = QLabel(f"Selling Price ({cur}) *", content)
         lbl_sell.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {COLORS['text_secondary']};")
         col_sell.addWidget(lbl_sell)
 
@@ -150,7 +152,7 @@ class QtProductEditDialog(SmoothModalOverlay):
 
         col_cost = QVBoxLayout()
         col_cost.setSpacing(4)
-        lbl_cost = QLabel("Cost Price (Rs)", content)
+        lbl_cost = QLabel(f"Cost Price ({cur})", content)
         lbl_cost.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {COLORS['text_secondary']};")
         col_cost.addWidget(lbl_cost)
 
@@ -203,11 +205,45 @@ class QtProductEditDialog(SmoothModalOverlay):
         row3.addLayout(col_unit, stretch=1)
 
         form_layout.addLayout(row3)
+
+        # 2-Column Row: Wholesale Price & Low-Stock Alert Level
+        row4 = QHBoxLayout()
+        row4.setSpacing(12)
+
+        col_ws = QVBoxLayout()
+        col_ws.setSpacing(4)
+        lbl_ws = QLabel(f"Wholesale Price ({cur})", content)
+        lbl_ws.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {COLORS['text_secondary']};")
+        col_ws.addWidget(lbl_ws)
+        self.spn_wholesale = QDoubleSpinBox(content)
+        self.spn_wholesale.setMaximum(1000000.0)
+        self.spn_wholesale.setValue(self.product.get("wholesale_price") or 0.0)
+        self.spn_wholesale.setToolTip("Used when the POS is switched to Wholesale mode. Leave 0 to use the selling price.")
+        self.spn_wholesale.setFixedHeight(36)
+        col_ws.addWidget(self.spn_wholesale)
+        row4.addLayout(col_ws, stretch=1)
+
+        col_min = QVBoxLayout()
+        col_min.setSpacing(4)
+        lbl_min = QLabel("Low-Stock Alert At", content)
+        lbl_min.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {COLORS['text_secondary']};")
+        col_min.addWidget(lbl_min)
+        self.spn_min = QDoubleSpinBox(content)
+        self.spn_min.setMaximum(100000.0)
+        self.spn_min.setDecimals(0)
+        self.spn_min.setValue(self.product.get("min_stock", 5.0) if self.product.get("id") else 5.0)
+        self.spn_min.setFixedHeight(36)
+        col_min.addWidget(self.spn_min)
+        row4.addLayout(col_min, stretch=1)
+
+        form_layout.addLayout(row4)
         layout.addLayout(form_layout)
+        layout.addStretch(1)
 
         # Connect live clearing of validation errors
         self.txt_name.textChanged.connect(lambda: self._clear_field_error(self.txt_name, self.lbl_name_err))
         self.spn_sell.valueChanged.connect(lambda: self._clear_field_error(self.spn_sell, self.lbl_sell_err))
+        self.txt_barcode.textChanged.connect(lambda: self.txt_barcode.setStyleSheet(""))
 
         layout.addSpacing(6)
 
@@ -267,24 +303,46 @@ class QtProductEditDialog(SmoothModalOverlay):
             return
 
         code = self.txt_barcode.text().strip() or None
+        if code and ProductModel.is_code_taken(code, exclude_id=self.product.get("id")):
+            self.txt_barcode.setStyleSheet(f"border: 1.5px solid {COLORS['border_error']}; background-color: {COLORS['bg_error']};")
+            self.txt_barcode.setToolTip("Another product already uses this barcode / SKU.")
+            self.txt_barcode.setFocus()
+            QMessageBox.warning(self, "Duplicate Barcode", f"Another product already uses the barcode / SKU '{code}'.")
+            return
+
+        cost = self.spn_cost.value()
+        if cost > selling_price:
+            reply = QMessageBox.question(
+                self, "Selling Below Cost",
+                f"The selling price is lower than the cost price, so every sale loses money.\n\nSave anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                self.spn_sell.setFocus()
+                return
+
         payload = {
             "name": name,
             "sku": code,
             "barcode": code,
             "category_id": self.cmb_cat.currentData(),
             "unit": self.cmb_unit.currentText(),
-            "cost_price": self.spn_cost.value(),
+            "cost_price": cost,
             "selling_price": selling_price,
-            "wholesale_price": selling_price,
+            "wholesale_price": self.spn_wholesale.value(),
             "current_stock": self.spn_stock.value(),
-            "min_stock": 5.0,
+            "min_stock": self.spn_min.value(),
             "is_active": 1
         }
 
-        if self.product.get("id"):
-            ProductModel.update(self.product["id"], payload)
-        else:
-            ProductModel.create(payload)
+        try:
+            if self.product.get("id"):
+                ProductModel.update(self.product["id"], payload)
+            else:
+                ProductModel.create(payload)
+        except sqlite3.IntegrityError as e:
+            QMessageBox.warning(self, "Could Not Save", f"The product could not be saved: {e}")
+            return
 
         self.hide_animated()
         if self.on_save:
@@ -473,7 +531,7 @@ class QtProductsView(QWidget):
 
     def _delete_product(self, prod_id, name):
         if QMessageBox.question(self, "Confirm Delete", f"Are you sure you want to delete '{name}'?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
-            ProductModel.delete(prod_id)
+            ProductModel.soft_delete(prod_id)
             self.load_products()
 
     def _open_category_manager(self):

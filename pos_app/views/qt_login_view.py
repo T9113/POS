@@ -13,6 +13,7 @@ from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, apply_windo
 from pos_app.utils.icon_helper import get_icon
 from pos_app.controllers.auth_controller import AuthController
 from pos_app.models.settings_model import SettingsModel
+from pos_app.models.user_model import UserModel
 
 
 class QtLoginView(QWidget):
@@ -31,7 +32,7 @@ class QtLoginView(QWidget):
 
         # Floating Card Container
         self.card = DropShadowCard(self, corner_radius=16, blur_radius=35, offset_y=10, opacity=45)
-        self.card.setFixedSize(420, 520)
+        self.card.setFixedSize(420, 560)
 
         card_layout = QVBoxLayout(self.card)
         card_layout.setContentsMargins(32, 20, 32, 28)
@@ -57,7 +58,8 @@ class QtLoginView(QWidget):
 
         logo_badge = QFrame(logo_container)
         logo_badge.setFixedSize(54, 54)
-        logo_badge.setStyleSheet(f"background-color: {COLORS['primary_subtle']}; border-radius: 27px; border: 1px solid #C7D2FE;")
+        logo_badge.setObjectName("LogoBadge")
+        logo_badge.setStyleSheet(f"QFrame#LogoBadge {{ background-color: {COLORS['primary_subtle']}; border-radius: 27px; border: 1px solid #BFDBFE; }}")
         badge_l = QVBoxLayout(logo_badge)
         badge_l.setContentsMargins(0, 0, 0, 0)
         badge_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -87,8 +89,7 @@ class QtLoginView(QWidget):
         card_layout.addWidget(lbl_user)
 
         self.txt_username = QLineEdit(self.card)
-        self.txt_username.setPlaceholderText("Enter username (e.g. admin)")
-        self.txt_username.setText("admin")
+        self.txt_username.setPlaceholderText("Enter username")
         self.txt_username.setFixedHeight(40)
         self.txt_username.textChanged.connect(self._clear_login_errors)
         card_layout.addWidget(self.txt_username)
@@ -101,7 +102,6 @@ class QtLoginView(QWidget):
         self.txt_password = QLineEdit(self.card)
         self.txt_password.setPlaceholderText("Enter password")
         self.txt_password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.txt_password.setText("admin")
         self.txt_password.setFixedHeight(40)
         self.txt_password.textChanged.connect(self._clear_login_errors)
         self.txt_password.returnPressed.connect(self._handle_login)
@@ -119,21 +119,30 @@ class QtLoginView(QWidget):
         self.btn_login.clicked.connect(self._handle_login)
         card_layout.addWidget(self.btn_login)
 
-        # Quick login helper buttons
-        quick_layout = QHBoxLayout()
-        quick_layout.setSpacing(8)
+        # Default-credential helpers disappear once the owner changes the seeded passwords
+        default_admin = UserModel.authenticate("admin", "admin") is not None
+        default_cashier = UserModel.authenticate("cashier", "cashier") is not None
+        if default_admin or default_cashier:
+            quick_layout = QHBoxLayout()
+            quick_layout.setSpacing(8)
+            if default_admin:
+                btn_fill_admin = AnimatedButton(" Admin Demo", self.card, variant="secondary", icon_name="user", icon_size=13)
+                btn_fill_admin.setFixedHeight(30)
+                btn_fill_admin.clicked.connect(lambda: self._fill_creds("admin", "admin"))
+                quick_layout.addWidget(btn_fill_admin)
+            if default_cashier:
+                btn_fill_cashier = AnimatedButton(" Cashier Demo", self.card, variant="secondary", icon_name="user", icon_size=13)
+                btn_fill_cashier.setFixedHeight(30)
+                btn_fill_cashier.clicked.connect(lambda: self._fill_creds("cashier", "cashier"))
+                quick_layout.addWidget(btn_fill_cashier)
+            card_layout.addLayout(quick_layout)
 
-        btn_fill_admin = AnimatedButton(" Admin Demo", self.card, variant="secondary", icon_name="user", icon_size=13)
-        btn_fill_admin.setFixedHeight(30)
-        btn_fill_admin.clicked.connect(lambda: self._fill_creds("admin", "admin"))
-        quick_layout.addWidget(btn_fill_admin)
+            lbl_warn = QLabel("Default passwords are active. Change them in Settings → User Accounts.", self.card)
+            lbl_warn.setWordWrap(True)
+            lbl_warn.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl_warn.setStyleSheet(f"font-size: 11px; color: {COLORS['warning']};")
+            card_layout.addWidget(lbl_warn)
 
-        btn_fill_cashier = AnimatedButton(" Cashier Demo", self.card, variant="secondary", icon_name="user", icon_size=13)
-        btn_fill_cashier.setFixedHeight(30)
-        btn_fill_cashier.clicked.connect(lambda: self._fill_creds("cashier", "cashier"))
-        quick_layout.addWidget(btn_fill_cashier)
-
-        card_layout.addLayout(quick_layout)
         card_layout.addStretch()
 
         root_layout.addWidget(self.card)
@@ -162,12 +171,14 @@ class QtLoginView(QWidget):
             self.txt_password.setFocus()
             return
 
-        user = AuthController.login(u, p)
-        if user:
+        ok, message = AuthController.login(u, p)
+        if ok:
             self.lbl_error.setText("")
             self.login_successful.emit()
         else:
-            self.lbl_error.setText("Invalid username or password.")
+            self.lbl_error.setText(message)
+            self.txt_password.clear()
+            self.txt_password.setFocus()
 
 
 class QtLoginWindow(QMainWindow):
@@ -179,7 +190,7 @@ class QtLoginWindow(QMainWindow):
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(480, 580)
+        self.setFixedSize(480, 620)
         apply_windows_native_corners(self)
 
         self.login_view = QtLoginView(self)

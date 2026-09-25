@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont, QColor
 
-from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard
+from pos_app.qt_theme import COLORS, AnimatedButton, DropShadowCard, clear_layout
 from pos_app.utils.icon_helper import get_icon
 from pos_app.controllers.cart_controller import CartController
 from pos_app.models.product_model import ProductModel
@@ -20,6 +20,9 @@ from pos_app.models.customer_model import CustomerModel
 from pos_app.models.settings_model import SettingsModel
 from pos_app.views.dialogs.qt_payment_dialog import QtPaymentDialog
 from pos_app.views.dialogs.qt_customer_dialog import QtCustomerDialog
+from pos_app.views.dialogs.qt_hold_orders_dialog import QtHoldOrdersDialog
+from pos_app.models.order_model import OrderModel
+from pos_app.controllers.auth_controller import AuthController
 
 
 class QtPOSView(QWidget):
@@ -76,13 +79,17 @@ class QtPOSView(QWidget):
 
         # Categories Horizontal Filter Bar
         self.cat_scroll = QScrollArea(self)
-        self.cat_scroll.setFixedHeight(48)
+        self.cat_scroll.setFixedHeight(54)
         self.cat_scroll.setWidgetResizable(True)
-        self.cat_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.cat_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.cat_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        self.cat_scroll.viewport().setAutoFillBackground(False)
         self.cat_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.cat_scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         self.cat_container = QWidget()
+        self.cat_container.setObjectName("CategoryBar")
+        self.cat_container.setStyleSheet("QWidget#CategoryBar { background: transparent; }")
         self.cat_layout = QHBoxLayout(self.cat_container)
         self.cat_layout.setContentsMargins(0, 4, 0, 4)
         self.cat_layout.setSpacing(8)
@@ -94,10 +101,17 @@ class QtPOSView(QWidget):
         self.prod_scroll.setWidgetResizable(True)
         self.prod_scroll.setFrameShape(QFrame.Shape.NoFrame)
 
+        self.prod_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        self.prod_scroll.viewport().setAutoFillBackground(False)
         self.prod_grid_widget = QWidget()
+        self.prod_grid_widget.setObjectName("ProductGrid")
+        self.prod_grid_widget.setStyleSheet("QWidget#ProductGrid { background: transparent; }")
         self.prod_grid_layout = QGridLayout(self.prod_grid_widget)
-        self.prod_grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.prod_grid_layout.setContentsMargins(0, 0, 4, 0)
         self.prod_grid_layout.setSpacing(10)
+        self.prod_grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        for col in range(3):
+            self.prod_grid_layout.setColumnStretch(col, 1)
         self.prod_scroll.setWidget(self.prod_grid_widget)
 
         left_panel.addWidget(self.prod_scroll)
@@ -174,14 +188,14 @@ class QtPOSView(QWidget):
 
         # Discount Row
         disc_row = QHBoxLayout()
-        lbl_d = QLabel("Discount (Rs / %):", cart_card)
+        lbl_d = QLabel(f"Discount ({self.currency} or %):", cart_card)
         lbl_d.setStyleSheet(f"font-size: 12px; color: {COLORS['text_secondary']};")
         disc_row.addWidget(lbl_d)
 
         self.txt_discount = QLineEdit(cart_card)
-        self.txt_discount.setPlaceholderText("0.00")
+        self.txt_discount.setPlaceholderText("0 or 10%")
         self.txt_discount.setFixedHeight(30)
-        self.txt_discount.setFixedWidth(80)
+        self.txt_discount.setFixedWidth(110)
         self.txt_discount.textChanged.connect(self._apply_discount)
         disc_row.addWidget(self.txt_discount)
         disc_row.addStretch()
@@ -190,7 +204,8 @@ class QtPOSView(QWidget):
 
         # Totals Card
         totals_frame = QFrame(cart_card)
-        totals_frame.setStyleSheet(f"background-color: {COLORS['bg_hover']}; border-radius: 8px; padding: 6px;")
+        totals_frame.setObjectName("TotalsFrame")
+        totals_frame.setStyleSheet(f"QFrame#TotalsFrame {{ background-color: {COLORS['bg_hover']}; border-radius: 10px; }}")
         tot_layout = QVBoxLayout(totals_frame)
         tot_layout.setContentsMargins(12, 8, 12, 8)
         tot_layout.setSpacing(4)
@@ -209,7 +224,7 @@ class QtPOSView(QWidget):
         disc_layout.addWidget(QLabel("Discount:", self.disc_widget))
         self.lbl_disc_summary = QLabel(f"-{self.currency} 0.00", self.disc_widget)
         self.lbl_disc_summary.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.lbl_disc_summary.setStyleSheet("font-family: Consolas, monospace; font-weight: bold; color: #DC2626;")
+        self.lbl_disc_summary.setStyleSheet(f"font-family: Consolas, monospace; font-weight: bold; color: {COLORS['danger']};")
         disc_layout.addWidget(self.lbl_disc_summary)
         self.disc_widget.hide()
         tot_layout.addWidget(self.disc_widget)
@@ -221,7 +236,7 @@ class QtPOSView(QWidget):
         tax_layout.addWidget(self.lbl_tax_name)
         self.lbl_tax = QLabel(f"{self.currency} 0.00", self.tax_widget)
         self.lbl_tax.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.lbl_tax.setStyleSheet("font-family: Consolas, monospace; font-weight: bold; color: #0284C7;")
+        self.lbl_tax.setStyleSheet(f"font-family: Consolas, monospace; font-weight: bold; color: {COLORS['info']};")
         tax_layout.addWidget(self.lbl_tax)
         self.tax_widget.hide()
         tot_layout.addWidget(self.tax_widget)
@@ -253,6 +268,11 @@ class QtPOSView(QWidget):
         btn_hold.clicked.connect(self._hold_order)
         action_row.addWidget(btn_hold)
 
+        btn_recall = AnimatedButton(" Recall", cart_card, variant="secondary", icon_name="undo", icon_color=COLORS["primary"], icon_size=14)
+        btn_recall.setFixedHeight(38)
+        btn_recall.clicked.connect(self._open_held_orders)
+        action_row.addWidget(btn_recall)
+
         cart_layout.addLayout(action_row)
 
         self.btn_pay = AnimatedButton(" Complete Sale (F12)", cart_card, variant="success", icon_name="check", icon_color="#FFFFFF", icon_size=18)
@@ -283,10 +303,7 @@ class QtPOSView(QWidget):
 
     def _load_categories(self):
         # Clear existing category buttons
-        while self.cat_layout.count() > 0:
-            item = self.cat_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.cat_layout)
 
         btn_all = AnimatedButton(" All Products", variant="primary" if self.active_category_id is None else "secondary", icon_name="tag", icon_size=13)
         btn_all.setFixedHeight(34)
@@ -309,30 +326,36 @@ class QtPOSView(QWidget):
         self._load_products()
 
     def _load_customers(self):
+        current = self.cmb_customer.currentData()
+        self.cmb_customer.blockSignals(True)
         self.cmb_customer.clear()
         self.cmb_customer.addItem("Walk-in Customer (No Khata)", None)
-        custs = CustomerModel.get_all()
+        custs = CustomerModel.get_all(limit=5000)
         for c in custs:
             bal = c.get("balance", 0.0)
             bal_str = f" [Due: {self.currency} {bal:,.2f}]" if bal > 0 else ""
             self.cmb_customer.addItem(f"{c['name']}{bal_str}", c)
+        self._select_customer_by_id(current["id"] if current else None)
+        self.cmb_customer.blockSignals(False)
 
     def _load_products(self):
-        # Clear products grid
-        while self.prod_grid_layout.count() > 0:
-            item = self.prod_grid_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.prod_grid_layout)
 
         query = self.txt_search.text().strip()
-        prods = ProductModel.search_products(query, category_id=self.active_category_id, limit=30)
+        prods = ProductModel.search_products(query, category_id=self.active_category_id, limit=60)
 
         cols = 3
         for idx, p in enumerate(prods):
-            r = idx // cols
-            c = idx % cols
             card = self._create_product_tile(p)
-            self.prod_grid_layout.addWidget(card, r, c)
+            self.prod_grid_layout.addWidget(card, idx // cols, idx % cols)
+
+        if not prods:
+            msg = "No products match your search." if query else "No products in this category yet. Add products from the Products screen."
+            lbl_empty = QLabel(msg, self.prod_grid_widget)
+            lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl_empty.setWordWrap(True)
+            lbl_empty.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 13px; padding: 40px;")
+            self.prod_grid_layout.addWidget(lbl_empty, 0, 0, 1, cols)
 
     def _create_product_tile(self, p: dict) -> QFrame:
         tile = QFrame(self.prod_grid_widget)
@@ -497,7 +520,8 @@ class QtPOSView(QWidget):
 
     def _calculate_totals(self):
         subtotal = self.cart_controller.get_subtotal()
-        discount = self.cart_controller.get_discount()
+        discount = self._resolve_discount(subtotal)
+        self.cart_controller.set_discount(discount)
         net_subtotal = max(0.0, subtotal - discount)
 
         settings = SettingsModel.get_all()
@@ -528,13 +552,20 @@ class QtPOSView(QWidget):
         self._render_cart()
 
     def _apply_discount(self):
-        txt = self.txt_discount.text().strip()
-        try:
-            val = float(txt or 0.0)
-            self.cart_controller.set_discount(val)
-        except ValueError:
-            self.cart_controller.set_discount(0.0)
         self._render_cart()
+
+    def _resolve_discount(self, subtotal: float) -> float:
+        """Accepts a flat amount ('50') or a percentage ('10%'); never exceeds the subtotal."""
+        txt = self.txt_discount.text().strip().replace(",", "")
+        try:
+            if txt.endswith("%"):
+                pct = min(max(float(txt[:-1] or 0), 0.0), 100.0)
+                val = round(subtotal * pct / 100.0, 2)
+            else:
+                val = float(txt or 0.0)
+        except ValueError:
+            val = 0.0
+        return min(max(val, 0.0), subtotal)
 
     def _toggle_wholesale(self):
         self.is_wholesale = not self.is_wholesale
@@ -556,10 +587,63 @@ class QtPOSView(QWidget):
         if not items:
             QMessageBox.information(self, "Hold Order", "Cart is empty. Nothing to put on hold.")
             return
-        self.cart_controller.hold_current_order()
+        customer = self.cmb_customer.currentData()
+        user = AuthController.get_current_user()
+        cart_data = {
+            "items": items,
+            "discount_text": self.txt_discount.text().strip(),
+        }
+        OrderModel.hold_order(
+            cart_data,
+            customer_id=customer["id"] if customer else None,
+            user_id=user["id"] if user else None,
+        )
         self.cart_controller.clear()
+        self.txt_discount.clear()
+        self.cmb_customer.setCurrentIndex(0)
         self._render_cart()
-        QMessageBox.information(self, "Order Held", "Order has been placed on hold successfully.")
+        QMessageBox.information(self, "Order Held", "Order parked. Use Recall to bring it back to the cart.")
+
+    def _open_held_orders(self):
+        top_window = self.window()
+        self.dlg_held = QtHoldOrdersDialog(top_window, on_recall=self._recall_held_order)
+        self.dlg_held.show_animated()
+
+    def _recall_held_order(self, cart_data, customer_id=None):
+        if self.cart_controller.get_items():
+            reply = QMessageBox.question(
+                self, "Replace Cart",
+                "The current cart is not empty. Park it first, or replace it with the recalled order?\n\n"
+                "Yes = replace current cart, No = cancel recall",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return False
+        self.cart_controller.clear()
+        items = cart_data.get("items", [])
+        for item in items:
+            self.cart_controller.add_item(
+                product_id=item.get("product_id"),
+                name=item.get("name", ""),
+                price=float(item.get("price", 0)),
+                cost_price=float(item.get("cost_price", 0)),
+                quantity=int(item.get("quantity", 1)),
+                unit=item.get("unit", "pc")
+            )
+        self.txt_discount.setText(cart_data.get("discount_text", ""))
+        self._select_customer_by_id(customer_id)
+        self._render_cart()
+        return True
+
+    def _select_customer_by_id(self, customer_id):
+        if not customer_id:
+            self.cmb_customer.setCurrentIndex(0)
+            return
+        for idx in range(self.cmb_customer.count()):
+            cdata = self.cmb_customer.itemData(idx)
+            if cdata and cdata.get("id") == customer_id:
+                self.cmb_customer.setCurrentIndex(idx)
+                return
 
     def _open_new_customer_dialog(self):
         top_window = self.window()
@@ -568,12 +652,7 @@ class QtPOSView(QWidget):
 
     def _on_customer_added(self, customer):
         self._load_customers()
-        # Find index of newly added customer and select it
-        for idx in range(self.cmb_customer.count()):
-            cdata = self.cmb_customer.itemData(idx)
-            if cdata and cdata.get("id") == customer.get("id"):
-                self.cmb_customer.setCurrentIndex(idx)
-                break
+        self._select_customer_by_id(customer.get("id"))
 
     def _open_payment_dialog(self):
         items = self.cart_controller.get_items()
@@ -598,6 +677,7 @@ class QtPOSView(QWidget):
     def _on_payment_completed(self, order):
         self.cart_controller.clear()
         self.txt_discount.clear()
-        self._render_cart()
         self.refresh_catalog()
+        self.cmb_customer.setCurrentIndex(0)
+        self._render_cart()
         self.sale_completed.emit(order)

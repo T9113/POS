@@ -69,7 +69,8 @@ class QtPaymentDialog(SmoothModalOverlay):
 
         # Total Amount Due Banner
         banner = QFrame(content)
-        banner.setStyleSheet(f"background-color: {COLORS['primary_subtle']}; border-radius: 10px; border: 1.5px solid #C7D2FE;")
+        banner.setObjectName("TotalBanner")
+        banner.setStyleSheet(f"QFrame#TotalBanner {{ background-color: {COLORS['primary_subtle']}; border-radius: 10px; border: 1.5px solid #BFDBFE; }}")
         banner_layout = QVBoxLayout(banner)
         banner_layout.setContentsMargins(16, 12, 16, 12)
 
@@ -95,16 +96,24 @@ class QtPaymentDialog(SmoothModalOverlay):
         self.btn_cash.clicked.connect(lambda: self._set_method("cash"))
         mode_row.addWidget(self.btn_cash)
 
-        self.btn_split = AnimatedButton("Split Payment", content, variant="secondary")
+        self.btn_split = AnimatedButton("Part Cash + Khata", content, variant="secondary")
         self.btn_split.setFixedHeight(36)
         self.btn_split.clicked.connect(lambda: self._set_method("split"))
         mode_row.addWidget(self.btn_split)
 
-        self.btn_credit = AnimatedButton("Customer Khata / Due", content, variant="secondary")
+        self.btn_credit = AnimatedButton("Full Khata / Due", content, variant="secondary")
         self.btn_credit.setFixedHeight(36)
         self.btn_credit.clicked.connect(lambda: self._set_method("credit"))
         mode_row.addWidget(self.btn_credit)
         layout.addLayout(mode_row)
+
+        if not self.customer:
+            for btn in (self.btn_split, self.btn_credit):
+                btn.setEnabled(False)
+                btn.setToolTip("Select a customer on the POS screen to sell on Khata")
+            lbl_hint = QLabel("Khata options need a customer. Select one in the cart to enable them.", content)
+            lbl_hint.setStyleSheet(f"font-size: 11px; color: {COLORS['text_muted']};")
+            layout.addWidget(lbl_hint)
 
         self.payment_method = "cash"
 
@@ -253,11 +262,17 @@ class QtPaymentDialog(SmoothModalOverlay):
         elif self.payment_method in ("cash", "split"):
             try:
                 tendered = float(self.txt_tendered.text() or 0.0)
-                if self.payment_method == "cash" and tendered < self.total_amount:
-                    self.lbl_msg.setText(f"Tendered amount is less than total {self.currency} {self.total_amount:,.2f}!")
-                    return
             except ValueError:
                 self.lbl_msg.setText("Invalid tendered amount entered.")
+                return
+            if tendered < 0:
+                self.lbl_msg.setText("Tendered amount cannot be negative.")
+                return
+            if self.payment_method == "cash" and tendered < self.total_amount:
+                self.lbl_msg.setText(f"Tendered amount is less than total {self.currency} {self.total_amount:,.2f}!")
+                return
+            if self.payment_method == "split" and not self.customer:
+                self.lbl_msg.setText("Select a customer so the unpaid balance can go on Khata.")
                 return
             change_due = max(0.0, tendered - self.total_amount)
             payment_status = "paid" if tendered >= self.total_amount else "partial"
